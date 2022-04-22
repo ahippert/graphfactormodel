@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 
 import networkx as nx
-
 import pandas as pd
 
 from sklearn import cluster, covariance, manifold

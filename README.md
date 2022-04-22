@@ -17,16 +17,19 @@ submitted at the conference NEURIPS 2022. The draft of the article is available 
 ├── data/
 │   ├── genomics
 │   ├── networks
-│   └── animal
+│   └── animal.mat
 ├── results/
-│   ├── numerical
-│   └── applications
+│   ├── numerical/
+│   │   └── benchmark_toydata.py
+│   └── applications/
+│       └── benchmark_animaldata.py
 ├── src/
 │   ├── utils.py
 │   ├── models.py
 │   ├── optimization.py
 │   ├── data.py
-│   └── clustering.py
+│   ├── pca.py
+│   └── visualization.py
 ├── simulations/
 │   ├── numerical
 │   └── applications
