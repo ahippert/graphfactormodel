@@ -1,0 +1,41 @@
+# Created Date: Tuesday, March 22nd 2022
+# Author: Ammar Mian
+# 
+# Copyright (c) 2022 Universite Savoie Mont-Blanc
+ 
+name: graphfactormodels
+channels:
+  - pytorch
+  - pyg
+  - conda-forge
+  - anaconda
+  - defaults
+dependencies:
+- python=3.10
+- pip
+- numpy
+- scipy
+- joblib
+- pandas
+- pytorch
+- cpuonly
+- pyg
+- statsmodels
+- cvxopt
+- matplotlib
+- plotly
+- seaborn
+- tqdm
+- ipython
+- jupyter
+- numba
+- pip:
+  - scikit-learn
+  - geomstats
+  - geoopt
+  - pyriemann
+  - pyyaml
+  - "jax[cpu]"
+  - jraph
+  - wget
+  - git+https://github.com/HIPS/autograd.git
