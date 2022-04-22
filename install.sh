@@ -26,6 +26,10 @@ python setup.py install
 cd ..
 rm -r pymanopt
 
+# Installing other librairies
+echo "Installing StructuredGraphLearning"
+pip install StructuredGraphLearning
+
 # Finishing install
 echo "\n ------------------------------------------------------------"
 echo "Done installing. Moving back to directory: $CWD"
