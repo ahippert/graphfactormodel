@@ -22,7 +22,7 @@ if __name__ == "__main__":
     np.random.seed(0)
 
     # Toy datasets
-    n = 30  # number of nodes per cluster
+    n = 40  # number of nodes per cluster
     k = 2   # number of components
     datasets =[make_moons(n_samples=n*k, noise=.05, shuffle=True),
                make_circles(n_samples=n*k, factor=0.5, noise=0.05)
