@@ -133,7 +133,7 @@ def visualize_simple_graph(data, graph, pos):
     fig = plt.figure(figsize=(15,8))
 
     nx.draw_networkx(graph, pos, width=norm_weights)
-    plt.title("Learned graph for animal dataset")
+    plt.title("Learned graph")
     #plt.suptitle('components k=' + str(n_components) + ', beta=' + str(beta))
 
 
@@ -175,7 +175,7 @@ def visualize_graph2(data, graph, covariance, list_names, name, n_components=Non
     nx.draw_networkx(graph, pos, node_size=80, node_color=nodecolor,
                      with_labels=False, labels=labels, font_size=10,
                      width=norm_weights)
-    plt.title("Learned graph for animal dataset")
+    plt.title("Learned graph")
     #plt.suptitle('components k=' + str(n_components) + ', beta=' + str(beta))
     plt.suptitle('Algorithm: ' + name)
 

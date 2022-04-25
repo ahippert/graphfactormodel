@@ -18,7 +18,9 @@ from scipy.stats import (
     multivariate_normal
 )
 import logging
-
+from contextlib import contextmanager
+from functools import partialmethod
+import tqdm
 
 def hermitian(X):
     return .5*(X + np.conjugate(X.T))
@@ -292,3 +294,37 @@ def matprint(mat, fmt="g"):
             print(("{:"+str(col_maxes[i])+fmt+"}").format(y), end="  ")
         print("")
 
+
+def format_pipeline_name(pipeline):
+    name = ''
+    for step in pipeline.named_steps.keys():
+        name += step + ' + '
+    return name[:-3]
+
+
+# -------------------------------------------------------------------------
+# Disabling tqdm temporarily. Credits to liam-ly:
+# https://github.com/tqdm/tqdm/issues/614
+# -------------------------------------------------------------------------
+@contextmanager
+def monkeypatched(obj, name, patch):
+    """Temporarily monkeypatch."""
+    old_attr = getattr(obj, name)
+    setattr(obj, name, patch(old_attr))
+    try:
+        yield
+    finally:
+        setattr(obj, name, old_attr)
+
+
+@contextmanager
+def disable_tqdm():
+    """Context manager to disable tqdm."""
+
+    def _patch(old_init):
+        return partialmethod(old_init, disable=True)
+
+    with (
+        monkeypatched(tqdm.std.tqdm, "__init__", _patch)
+    ):
+        yield
