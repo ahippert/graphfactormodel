@@ -1,7 +1,19 @@
 import numpy as np
-from sklearn.covariance import EmpiricalCovariance, empirical_covariance
+from sklearn.base import TransformerMixin
+from sklearn.covariance import EmpiricalCovariance, empirical_covariance, GraphicalLasso
+from sklearn.cluster import SpectralClustering
 from StructuredGraphLearning.LearnGraphTopology import LearnGraphTopology
 from .utils import disable_tqdm
+
+
+# -------------------------------------------------------------------------
+# Graphical Lasso transformer
+# -------------------------------------------------------------------------
+class GLasso(GraphicalLasso, TransformerMixin):
+    def transform(self, X, **args):
+        return self.precision_
+
+
 
 # -------------------------------------------------------------------------
 # Scikit-learn wrapper around StructuredGraphLearning
@@ -11,7 +23,7 @@ def S_regularized_empirical_covariance(X, alpha):
     return empirical_cov + alpha*np.eye(len(empirical_cov))
 
 
-class SGLkComponents(EmpiricalCovariance):
+class SGLkComponents(EmpiricalCovariance, TransformerMixin):
     _LGT_ATTR_NAMES = [
         'S', 'is_data_matrix', 'alpha', 'maxiter', 'abstol',
         'reltol', 'record_objective', 'record_weights'
@@ -75,3 +87,7 @@ class SGLkComponents(EmpiricalCovariance):
             setattr(self, key+'_', results[key])
         
         return self
+
+    def transform(self, X, **args):
+        return self.precision_
+

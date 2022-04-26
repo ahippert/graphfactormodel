@@ -5,7 +5,6 @@
  
 name: graphfactormodels
 channels:
-  - pytorch
   - pyg
   - conda-forge
   - anaconda
@@ -15,10 +14,8 @@ dependencies:
 - pip
 - numpy
 - scipy
-- joblib
+- joblib  
 - pandas
-- pytorch
-- cpuonly
 - pyg
 - statsmodels
 - cvxopt
@@ -38,4 +35,7 @@ dependencies:
   - "jax[cpu]"
   - jraph
   - wget
+  - "networkx[default]"
+  - pyvis
+  - scikit-network
   - git+https://github.com/HIPS/autograd.git
