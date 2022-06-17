@@ -13,8 +13,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.cluster import SpectralClustering
 
-import src.visualization as vis
-from src.estimators import SGLkComponents, GLasso
+from sknetwork.embedding import PCA
+from src.estimators import SGLkComponents, GLasso, kmeans, louvain
 
 
 if __name__ == "__main__":
@@ -37,17 +37,35 @@ if __name__ == "__main__":
     n_samples, n_features = X.shape
     n_clusters = 6
 
-    cluster_colors = ['red', 'blue', 'black', 'orange', 'green', 'gray']
+    cluster_colors = [
+        'red', 'blue', 'black', 'orange',
+        'green', 'gray', 'purple', 'cyan',
+        'yellow'
+    ]
 
     # Pre-processing
     pre_processing = StandardScaler(with_mean=True, with_std=False)
 
     # Estimators compared
+    # GLasso = Pipeline(steps=[
+    #         ('Centering', pre_processing),
+    #         ('Graph Estimation', GLasso(alpha=0.05)),
+    #         ('KMeans', kmeans(n_clusters=n_clusters, embedding_method=PCA()))
+    #     ]
+    # )
+    # SGL = Pipeline(steps=[
+    #         ('Centering', pre_processing),
+    #         ('Graph Estimation', SGLkComponents(
+    #             None, maxiter=1000, record_objective=True, record_weights=True,
+    #             beta = 0.5, k=n_clusters, S_estimation_args=[1./3], verbosity=1
+    #         )),
+    #         ('KMeans', kmeans(n_clusters=n_clusters, embedding_method=PCA()))
+    #     ]
+    # )
     GLasso = Pipeline(steps=[
             ('Centering', pre_processing),
             ('Graph Estimation', GLasso(alpha=0.05)),
-            # ('Spectral Clustering', SpectralClustering(
-            #     affinity='precomputed', n_clusters=n_clusters))
+            ('Louvain', louvain(shuffle_nodes=True, n_aggregations=n_clusters))
         ]
     )
     SGL = Pipeline(steps=[
@@ -56,8 +74,7 @@ if __name__ == "__main__":
                 None, maxiter=1000, record_objective=True, record_weights=True,
                 beta = 0.5, k=n_clusters, S_estimation_args=[1./3], verbosity=1
             )),
-            ('Spectral Clustering', SpectralClustering(
-                affinity='precomputed', n_clusters=n_clusters))
+            ('Louvain', louvain(shuffle_nodes=True, n_aggregations=n_clusters))
         ]
     )
 
@@ -78,29 +95,42 @@ if __name__ == "__main__":
         print("----------------------------------------------------------")
         print('\n\n')
 
-        nt = Network('500px', '500px')
+        nt = Network('100%', '100%')
         # nt.show_buttons()
         nt.set_options("""
-        var options = {
-        "edges": {
-            "color": {
-            "inherit": true
+            var options = {
+            "nodes": {
+                "shadow": {
+                "enabled": true
+                },
+                "size": 23
             },
-            "font": {
-            "color": "rgba(52,52,52,0.52)",
-            "size": 7,
-            "align": "bottom"
+            "edges": {
+                "arrowStrikethrough": false,
+                "color": {
+                "inherit": true
+                },
+                "dashes": true,
+                "font": {
+                "size": 0
+                },
+                "shadow": {
+                "enabled": true
+                },
+                "smooth": {
+                "type": "continuous",
+                "forceDirection": "none",
+                "roundness": 1
+                }
             },
-            "smooth": false
-        },
-        "interaction": {
-            "hover": true
-        },
-        "physics": {
-            "enabled": true,
-            "minVelocity": 0.05
-        }
-        }
+            "physics": {
+                "forceAtlas2Based": {
+                "springLength": 100
+                },
+                "minVelocity": 0.75,
+                "solver": "forceAtlas2Based"
+            }
+            }
         """)
         nt.from_nx(graph)
 

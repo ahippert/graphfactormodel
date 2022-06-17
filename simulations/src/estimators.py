@@ -1,9 +1,23 @@
 import numpy as np
-from sklearn.base import TransformerMixin
+from scipy.sparse import csr_matrix
+from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.covariance import EmpiricalCovariance, empirical_covariance, GraphicalLasso
 from sklearn.cluster import SpectralClustering
+from sknetwork.clustering import KMeans, Louvain
 from StructuredGraphLearning.LearnGraphTopology import LearnGraphTopology
 from .utils import disable_tqdm
+
+
+# -------------------------------------------------------------------------
+# sknetwork wrapper to have same arguments as sklearn
+# -------------------------------------------------------------------------
+class louvain(Louvain):
+    def fit(self, X, y=None, force_bipartite=False):
+        return super().fit(csr_matrix(X), force_bipartite)  
+
+class kmeans(KMeans):
+    def fit(self, X, y=None):
+        return super().fit(csr_matrix(X))
 
 
 # -------------------------------------------------------------------------
@@ -11,7 +25,8 @@ from .utils import disable_tqdm
 # -------------------------------------------------------------------------
 class GLasso(GraphicalLasso, TransformerMixin):
     def transform(self, X, **args):
-        return self.precision_
+        # TODO: GIVE THE ADJAACENCY AND NOT PRECISION  !!!!!!!!!!
+        return np.abs(self.precision_)
 
 
 
@@ -89,5 +104,5 @@ class SGLkComponents(EmpiricalCovariance, TransformerMixin):
         return self
 
     def transform(self, X, **args):
-        return self.precision_
+        return self.adjacency_
 
