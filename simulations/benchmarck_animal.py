@@ -68,14 +68,12 @@ if __name__ == "__main__":
             ('Louvain', louvain(shuffle_nodes=True, n_aggregations=n_clusters))
         ]
     )
-    SGL = Pipeline(steps=[
-            ('Centering', pre_processing),
-            ('Graph Estimation', SGLkComponents(
-                None, maxiter=1000, record_objective=True, record_weights=True,
-                beta = 0.5, k=n_clusters, S_estimation_args=[1./3], verbosity=1
-            )),
-            ('Louvain', louvain(shuffle_nodes=True, n_aggregations=n_clusters))
-        ]
+    SGL = make_pipeline(
+        pre_processing,
+        SGLkComponents(
+            None, maxiter=1000, record_objective=True, record_weights=True,
+            beta = 0.5, k=6, S_estimation_args=[1./3], verbosity=1
+        )
     )
 
     list_names = ['GLasso', 'SGL']
@@ -141,3 +139,7 @@ if __name__ == "__main__":
 
         nt.show(f'animaldata_{name}.html')
 
+<<<<<<< HEAD
+=======
+    plt.show()
+>>>>>>> origin/Alex

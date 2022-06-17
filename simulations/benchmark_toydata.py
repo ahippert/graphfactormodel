@@ -42,13 +42,12 @@ if __name__ == "__main__":
         pre_processing, GraphicalLasso(alpha=0.05)
     )
     SGL = make_pipeline(
-        pre_processing, 
+        pre_processing,
         SGLkComponents(
             None, maxiter=1000, record_objective=True, record_weights=True,
             beta = 0.1, k=k, verbosity=1, S_estimation_method=S_estimation_method
         )
     )
-
 
     # Iterate over datasets
     for ds_cnt, ds in enumerate(datasets):

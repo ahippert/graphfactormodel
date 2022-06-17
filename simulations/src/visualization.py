@@ -37,7 +37,7 @@ def visualize_graph(data, covariance, precision, list_names, name):
     node_position_model = manifold.LocallyLinearEmbedding(
         n_components=2, n_neighbors=7
     )
-    
+
     embedding = node_position_model.fit_transform(data).T
 
     # ##########################################################################
