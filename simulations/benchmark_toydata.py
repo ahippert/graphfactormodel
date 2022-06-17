@@ -27,7 +27,7 @@ if __name__ == "__main__":
     np.random.seed(0)
 
     # Toy datasets
-    n = 30  # number of nodes per cluster
+    n = 100  # number of nodes per cluster
     k = 2   # number of components
     datasets =[
         make_moons(n_samples=n*k, noise=.05, shuffle=True),
@@ -42,13 +42,12 @@ if __name__ == "__main__":
         pre_processing, GraphicalLasso(alpha=0.05)
     )
     SGL = make_pipeline(
-        pre_processing, 
+        pre_processing,
         SGLkComponents(
             None, maxiter=1000, record_objective=True, record_weights=True,
             beta = 0.1, k=k, verbosity=1, S_estimation_method=S_estimation_method
         )
     )
-
 
     # Iterate over datasets
     for ds_cnt, ds in enumerate(datasets):
@@ -61,7 +60,7 @@ if __name__ == "__main__":
             pos[i] = X[i]
 
         # Doing estimation
-        for pipeline in [Glasso, SGL]:
+        for pipeline in [SGL]:
             pipeline_dataset = deepcopy(pipeline)
             print("----------------------------------------------------------")
             name = format_pipeline_name(pipeline_dataset)
