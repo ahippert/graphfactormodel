@@ -12,7 +12,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn import cluster, manifold
 
 import src.visualization as vis
-from src.estimators import SGLkComponents
+from src.estimators import SGLkComponents, NGL
 from src.utils import format_pipeline_name
 
 if __name__ == "__main__":
@@ -44,9 +44,15 @@ if __name__ == "__main__":
             beta = 0.5, k=6, S_estimation_args=[1./3], verbosity=1
         )
     )
+    NGL = make_pipeline(
+        pre_processing,
+        NGL(S_estimation_args=[1./3], maxiter=100, record_objective=True
+        )
+    )
+
 
     # Doing estimation
-    for pipeline in [Glasso, SGL]:
+    for pipeline in [Glasso, SGL, NGL]:
         print("----------------------------------------------------------")
         print("----------------------------------------------------------")
         name = format_pipeline_name(pipeline)
