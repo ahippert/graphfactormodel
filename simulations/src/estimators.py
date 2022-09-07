@@ -1,11 +1,38 @@
 import numpy as np
 import scipy as sp
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.covariance import EmpiricalCovariance, empirical_covariance
+
+from scipy.sparse import csr_matrix
+from sklearn.base import TransformerMixin, BaseEstimator
+from sklearn.covariance import EmpiricalCovariance, empirical_covariance, GraphicalLasso
+from sklearn.cluster import SpectralClustering
+from sknetwork.clustering import KMeans, Louvain
 from StructuredGraphLearning.LearnGraphTopology import LearnGraphTopology
 from StructuredGraphLearning.utils import Operators
 from .utils import disable_tqdm
 from networkx import from_numpy_matrix
+
+
+# -------------------------------------------------------------------------
+# sknetwork wrapper to have same arguments as sklearn
+# -------------------------------------------------------------------------
+class louvain(Louvain):
+    def fit(self, X, y=None, force_bipartite=False):
+        return super().fit(csr_matrix(X), force_bipartite)  
+
+class kmeans(KMeans):
+    def fit(self, X, y=None):
+        return super().fit(csr_matrix(X))
+
+
+# -------------------------------------------------------------------------
+# Graphical Lasso transformer
+# -------------------------------------------------------------------------
+class GLasso(GraphicalLasso, TransformerMixin):
+    def transform(self, X, **args):
+        # TODO: GIVE THE ADJAACENCY AND NOT PRECISION  !!!!!!!!!!
+        return np.abs(self.precision_)
+
+
 
 # -------------------------------------------------------------------------
 # Scikit-learn wrapper around StructuredGraphLearning
@@ -15,7 +42,7 @@ def S_regularized_empirical_covariance(X, alpha):
     return empirical_cov + alpha*np.eye(len(empirical_cov))
 
 
-class SGLkComponents(EmpiricalCovariance):
+class SGLkComponents(EmpiricalCovariance, TransformerMixin):
     _LGT_ATTR_NAMES = [
         'S', 'is_data_matrix', 'alpha', 'maxiter', 'abstol',
         'reltol', 'record_objective', 'record_weights'
@@ -79,6 +106,9 @@ class SGLkComponents(EmpiricalCovariance):
             setattr(self, key+'_', results[key])
 
         return self
+        
+    def transform(self, X, **args):
+        return self.adjacency_
 
 
 # -------------------------------------------------------------------------
