@@ -14,8 +14,7 @@ from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.cluster import SpectralClustering
 
 from sknetwork.embedding import PCA
-from src.estimators import SGLkComponents, GLasso, kmeans, louvain
-
+from src.estimators import SGLkComponents, NGL, GLasso, kmeans, louvain
 
 if __name__ == "__main__":
 
@@ -75,9 +74,15 @@ if __name__ == "__main__":
             beta = 0.5, k=6, S_estimation_args=[1./3], verbosity=1
         )
     )
+    NGL = make_pipeline(
+        pre_processing,
+        NGL(S_estimation_args=[1./3], maxiter=100, record_objective=True
+        )
+    )
 
-    list_names = ['GLasso', 'SGL']
-    list_pipelines = [GLasso, SGL]
+
+    list_names = ['GLasso', 'SGL', 'NGL']
+    list_pipelines = [GLasso, SGL, NGL]
 
     # Doing estimation
     for pipeline, name in zip(list_pipelines, list_names):
@@ -139,7 +144,5 @@ if __name__ == "__main__":
 
         nt.show(f'animaldata_{name}.html')
 
-<<<<<<< HEAD
-=======
     plt.show()
->>>>>>> origin/Alex
+
