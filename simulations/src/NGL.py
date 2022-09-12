@@ -13,14 +13,14 @@ from utils import invsqrtm
 from networkx import laplacian_matrix, barabasi_albert_graph, set_edge_attributes, \
     to_numpy_array, from_numpy_matrix, draw_networkx
 
-def compute_initial_weights(w, Sinv, eta, norm_exit=1e-4, iter_max=50):
+def compute_initial_weights(w, Sinv, eta, operator, norm_exit=1e-4, iter_max=50):
     """ This function computes initial graph weights using gradient descent
     """
     iteration = 0
     norm = np.inf
 
     while norm > norm_exit and iteration < iter_max:
-        grad = op.Lstar(op.L(w) - Sinv)
+        grad = operator.Lstar(operator.L(w) - Sinv)
         w_new = w - eta*grad
         w_new[w_new < 0] = 0
 
@@ -104,79 +104,95 @@ X = multivariate_normal.rvs(
     size=n_samples
 )
 
-# Sample covariance matrix and its inverse
-S = np.cov(X.T)
-Sinv = np.linalg.pinv(S)
+def LearnGraph(S, op, lamda=0.5, iter_max=50):
 
-# Compute initial graph weights
-op = Operators()
-w0 = op.Linv(Sinv)
-w0[w0<0] = 0
-w0 = compute_initial_weights(w0, Sinv, eta)
-Lw0 = op.L(w0)
+    # Get feature dimension
+    p, _ = S.shape
 
-# Useful matrices
-J = (1/p)*np.ones((p,p))
-I = np.eye(p)
+    # Compute inverse of covariance matrix
+    Sinv = np.linalg.pinv(S)
 
-# store cross-correlations to avoid multiple computation of the same quantity
-#xxt = [np.vstack(X[i])@X[i][np.newaxis,] for i in range(n_samples)]
-#Lstar = [op.Lstar(xxt[i]) for i in range(n_samples)]
+    # Initialize learning rate
+    eta = 1/(2*p)
 
-w = w0
-Lw = Lw0
-H = MCP(Lw0, lamda)    # Compute sparsity function
-K = S + H
+    # Compute initial graph weights
+    w0 = op.Linv(Sinv)
+    w0[w0<0] = 0
+    w0 = compute_initial_weights(w0, Sinv, eta, op)
+    Lw0 = op.L(w0)
 
-########################
-# Estimation loop
-for i in range(iter_max):
+    # Useful matrices
+    J = (1/p)*np.ones((p,p))
+    I = np.eye(p)
 
-    try:
-        gradient = op.Lstar(K - np.linalg.inv(Lw + J))
-    except np.linalg.LinAlgError:
-        #print("Matrix is non-invertible: might produce errors...")
-        pass
+    # store cross-correlations to avoid multiple computation of the same quantity
+    #xxt = [np.vstack(X[i])@X[i][np.newaxis,] for i in range(n_samples)]
+    #Lstar = [op.Lstar(xxt[i]) for i in range(n_samples)]
 
-    #for t in range(50):
-    # total = 0.
-    # for i in range(n_samples):
-    #     total += ((p + df)*xxt[i])/(np.dot(w, Lstar[i]) + df)
-    # S = (1/n_samples)*total
-
-    if backtrack:
-        fun = objective_function(Lw, J, K)
-        while(1):
-            wi = w - eta*gradient
-            wi[wi<0] = 0
-
-            Lwi = op.L(wi)
-            fun_t = objective_function(Lwi, J, K)
-
-            if (fun < fun_t - np.sum(gradient*(wi-w)) - (.5/eta)*np.linalg.norm(wi-w)**2):
-                eta = .5 * eta
-            else:
-                eta = 2 * eta
-                break
-    else:
-        wi = w - eta * gradient
-        wi[wi < 0] = 0
-
-    norm = np.linalg.norm(op.L(wi) - Lw, 'fro')/np.linalg.norm(Lw, 'fro')
-    print(norm)
-
-    if (norm < tol and i > 1):
-        break
-
-    w = wi
-    Lw = op.L(w)
-    H = MCP(Lw, lamda)    # Compute sparsity function
+    w = w0
+    Lw = Lw0
+    H = MCP(Lw0, lamda)    # Compute sparsity function
     K = S + H
 
-rel_error = np.linalg.norm(Lw - Lw_true, 'fro')/np.linalg.norm(Lw_true, 'fro')
-print(rel_error)
-adjacency = op.A(w)
-graph = from_numpy_matrix(adjacency)
-plt.figure()
-draw_networkx(graph)
-plt.show()
+    ########################
+    # Estimation loop
+    for i in range(iter_max):
+
+        try:
+            gradient = op.Lstar(K - np.linalg.inv(Lw + J))
+        except np.linalg.LinAlgError:
+            #print("Matrix is non-invertible: might produce errors...")
+            pass
+
+        #for t in range(50):
+        # total = 0.
+        # for i in range(n_samples):
+        #     total += ((p + df)*xxt[i])/(np.dot(w, Lstar[i]) + df)
+        # S = (1/n_samples)*total
+
+        if backtrack:
+            fun = objective_function(Lw, J, K)
+            while(1):
+                wi = w - eta*gradient
+                wi[wi<0] = 0
+
+                Lwi = op.L(wi)
+                fun_t = objective_function(Lwi, J, K)
+
+                if (fun < fun_t - np.sum(gradient*(wi-w)) - (.5/eta)*np.linalg.norm(wi-w)**2):
+                    eta = .5 * eta
+                else:
+                    eta = 2 * eta
+                    break
+        else:
+            wi = w - eta * gradient
+            wi[wi < 0] = 0
+
+        norm = np.linalg.norm(op.L(wi) - Lw, 'fro')/np.linalg.norm(Lw, 'fro')
+        print(norm)
+
+        if (norm < tol and i > 1):
+            break
+
+        w = wi
+        Lw = op.L(w)
+        H = MCP(Lw, lamda)    # Compute sparsity function
+        K = S + H
+
+    rel_error = np.linalg.norm(Lw - Lw_true, 'fro')/np.linalg.norm(Lw_true, 'fro')
+    print(rel_error)
+    adjacency = op.A(w)
+    graph = from_numpy_matrix(adjacency)
+    plt.figure()
+    draw_networkx(graph)
+    plt.show()
+
+
+
+# Sample covariance matrix and its inverse
+cov = np.cov(X.T)
+
+# Create instance of Operators class
+operators = Operators()
+
+LearnGraph(cov, operators)

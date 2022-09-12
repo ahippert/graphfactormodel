@@ -10,10 +10,11 @@ from sklearn.datasets import make_moons, make_circles
 # from sknetwork.visualization import svg_graph
 
 from scipy.sparse import csr_matrix
-from scipy.stats import multivariate_normal
+from scipy.stats import multivariate_normal, multivariate_t
 
 import visualization as vis
 
+from utils import generate_covariance, invsqrtm
 
 # n = 30  # number of nodes per cluster
 # k = 2   # number of components
@@ -34,12 +35,20 @@ p = 20                                          # dimension
 ########################
 # Data generation
 
-X = multivariate_normal.rvs(
-    mean=np.zeros(p),
-    cov=np.eye(p),#L_inv_true,
+covariance = generate_covariance(p)
+
+# X = multivariate_normal.rvs(
+#     mean=np.zeros(p),
+#     cov=covariance,#L_inv_true,
+#     size=n_samples
+# )
+
+X = multivariate_t.rvs(
+    loc=np.zeros(p),
+    shape=covariance,#L_inv_true,
+    df=5,
     size=n_samples
 )
-covariance = np.cov(X.T)
 
 
 def dstar(d):
@@ -63,7 +72,7 @@ def dstar(d):
 w0 = np.random.uniform(0.1, 3, size=p*(p-1)//2) # initial estimate of graph weights
 d = np.ones(p)                                  # degree vector
 rho = 1                                         # penalty parameter
-nu = 5                                          # degree of freedom
+df = 5                                          # degree of freedom
 tol = 1e-2                                      # convergence tolerance
 
 # Initialize dual variables by zero
@@ -102,14 +111,14 @@ while (inf_norm > tol):
     precision = (1/2)*(1/rho)*U@D@U.T - J
 
     # Update graph weights
-    for j in range(20):
+    for j in range(10):
         # weighted sample covariance matrix
         total = 0.
         for i in range(n_samples):
-            #total += ((p + nu)*xxt[i])/(np.dot(w, Lstar[i]) + nu)
-            total += xxt[i]
+            total += ((p + df)*xxt[i])/(np.dot(w, Lstar[i]) + df)
 
         S = (1/n_samples)*total
+        #print(S)
 
         a = op.Lstar(S - Y - rho*(precision - Lw))
         b = dstar(y - rho*(d - dw))
@@ -139,15 +148,22 @@ while (inf_norm > tol):
     inf_norm = np.linalg.norm(s, np.inf)
     print(inf_norm)
 
-    # weighted sample covariance matrix
-    # tot = 0.
-    # for i in range(n_samples):
-    #     xLwx = X[i][np.newaxis,]@Lw@np.vstack(X[i])
-    #     tot += np.log(1 + xLwx/nu)
+    # compute MLE
+    temp = X@Lw
+    q = np.einsum('ij,ji->i', temp, X.T)
 
-    # # voir si c'est "precision" ou Lw qu'il faut mettre
-    # MLE = ((p+nu)/n_samples)*tot - np.log(np.linalg.det(precision + J))
-    # print(MLE)
+    MLE = ((df+p)/n_samples)*np.sum(np.log(1+q/df)) -\
+          np.log(np.linalg.det(precision + J))
+
+    #print(MLE)
+
+    dot_d = np.dot(y, dw-d)
+    norm_d = np.linalg.norm(dw - d)
+    dot_L = np.dot(Y, precision-Lw)
+    norm_L = np.linalg.norm(precision - Lw, 'fro')
+
+    #lagrangian = MLE + dot_d + (rho/2)*norm_d + dot_L + (rho/2)*norm_L
+    #print(MLE)
 
     count = count + 1
 

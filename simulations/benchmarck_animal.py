@@ -67,17 +67,17 @@ if __name__ == "__main__":
             ('Louvain', louvain(shuffle_nodes=True, n_aggregations=n_clusters))
         ]
     )
-    SGL = make_pipeline(
-        pre_processing,
-        SGLkComponents(
+    SGL = Pipeline(steps=[
+        ('Centering', pre_processing),
+        ('Graph Estimation', SGLkComponents(
             None, maxiter=1000, record_objective=True, record_weights=True,
-            beta = 0.5, k=6, S_estimation_args=[1./3], verbosity=1
-        )
+            beta = 0.5, k=6, S_estimation_args=[1./3], verbosity=1))
+        ]
     )
-    NGL = make_pipeline(
-        pre_processing,
-        NGL(S_estimation_args=[1./3], maxiter=100, record_objective=True
-        )
+    NGL = Pipeline(steps=[
+        ('Centering', pre_processing),
+        ('Graph Estimation', NGL(S_estimation_args=[1./3], maxiter=100, record_objective=True))
+        ]
     )
 
 
