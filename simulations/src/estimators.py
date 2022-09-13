@@ -106,7 +106,7 @@ class SGLkComponents(EmpiricalCovariance, TransformerMixin):
             setattr(self, key+'_', results[key])
 
         return self
-        
+
     def transform(self, X, **args):
         return self.adjacency_
 
@@ -115,11 +115,52 @@ class SGLkComponents(EmpiricalCovariance, TransformerMixin):
 # Class Nonconvex Graph Learning
 # -------------------------------------------------------------------------
 class NGL(BaseEstimator, TransformerMixin):
+    """
+    Nonconvex Graph Learning.
+
+    This class is the Python implementation of the Nonconvex Graph Learning (NGL) algorithm
+    as proposed in:
+
+    Ying J., Cardoso J. and Palomar D.P. "Nonconvex Sparse Graph Learning under Laplacian
+    Constrained Graphical Model". Neurips, 2020.
+
+    For the initial R package, please visit https://github.com/mirca/sparseGraph
+
+    Parameters
+    ----------
+    cov_type : {'scm'}, default='scm'
+        Specify the type of covariance estimation:
+        - 'scm' : sample covariance matrix.
+
+    operator : type, default=Operators()
+        Always initialized as an instance of the Operators() class. Useful to compute
+        laplacian and other operators.
+
+    alpha : float, default=0
+
+    S_estimation_method : function type, default=S_regularized_empirical_covariance
+        Defines the covariance estimation function.
+
+    S_estimation_args : list, default=[0]
+        Specify the arguments to compute the covariance matrix.
+
+    lambda : float, default=0.
+
+    maxiter : int, default=50
+
+    reltol : float, default=0.0001
+
+    record_objective : bool, default=False
+
+    backtrack : bool, default=True
+
+    verbosity : int, default=1
+    """
     def __init__(
         self,
         cov_type="scm",
         operator=Operators(), # instance of StructuredGraphLearning Operators
-        alpha=0,
+        alpha=0.,
         S_estimation_method=S_regularized_empirical_covariance,
         S_estimation_args=[0],
         lamda=0.5,
@@ -159,36 +200,26 @@ class NGL(BaseEstimator, TransformerMixin):
 
         return weights + 1e-4
 
-    def _MCP_dummy(self, x, gamma=1.01):
-        if x<0:
-            print("Error: x must be positive")
-        elif x>=0 and x<=gamma*self.lamda:
-            return self.lamda - x/gamma
-        else:
-            return 0
-
     def _MCP(self, Lw, gamma=1.01):
+        """ Non-convex sparsity-promoting function.
+        See: C.-H. Zhang et al. "Nearly unbiased variable selection under minimax concave penalty". The Annals of Statistics, 38(2):894–942, 2010.
+        """
         H = -(self.lamda + Lw/gamma) * (Lw >= -self.lamda*gamma)
         np.fill_diagonal(H, 0)
         return H
 
-    def _SCAD_dummy(self, x, gamma=2.01):
-        if x<0:
-            print("Error: x must be positive")
-        elif x>=0 and x<=self.lamda:
-            return self.lamda
-        elif x>=self.lamda and x<=gamma*self.lamda:
-            return (gamma*self.lamda - x)/(gamma - 1)
-        else:
-            return 0
-
     def _SCAD(self, Lw, gamma=2.01):
+        """ Non-convex sparsity-promoting function.
+        See: J. Fan and R. Li. "Variable selection via nonconcave penalized likelihood and its oracle properties". Journal of the American Statistical Association, 96(456):1348–1360, 2001.
+        """
         H = -self.lamda * (Lw >= -self.lamda)
         H = H + (-gamma * self.lamda - Lw) / (gamma - 1) * (Lw > -gamma*self.lamda) * (Lw < -self.lamda)
         np.fill_diagonal(H, 0)
         return H
 
     def _objective_function(self, Lw, J, K):
+        """ Computes the objective function as defined in (Ying et al., 2020)
+        """
         matrix = Lw + J
         chol_factor, pd = sp.linalg.lapack.dpotrf(matrix)
         while pd > 0:
@@ -225,7 +256,6 @@ class NGL(BaseEstimator, TransformerMixin):
         H = self._MCP(Lw0) # compute sparsity function
         K = S + H
 
-        ########################
         # Estimation loop
         for i in range(self.maxiter):
 
@@ -264,9 +294,7 @@ class NGL(BaseEstimator, TransformerMixin):
             H = self._MCP(Lw) # compute sparsity function
             K = S + H
 
-        #rel_error = np.linalg.norm(Lw - Lw_true, 'fro')/np.linalg.norm(Lw_true, 'fro')
-        #print(rel_error)
-
+        # get adjacency matrix and graph
         adjacency = self.operator.A(w)
         graph = from_numpy_matrix(adjacency)
 
@@ -274,7 +302,21 @@ class NGL(BaseEstimator, TransformerMixin):
                 'graph': graph}
 
     def fit(self, X, y=None):
+        """
+        Fit the model according to the given training data.
 
+        The first step is the estimation of the covariance matrix.
+
+        The second step consists in learning the graph.
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_components, n_samples)
+            Training vector, where 'n_samples' is the number of samples and
+            'n_components' is the number of components or features.
+
+        y : 
+        """
         if self.cov_type == 'scm':
             S = self.S_estimation_method(X, *self.S_estimation_args)
 
@@ -285,10 +327,13 @@ class NGL(BaseEstimator, TransformerMixin):
         # Saving results
         self.precision_ = results['adjacency']
         self.covariance_ = np.linalg.inv(self.precision_)
-        
+
         return self
 
     def transform(self, X, y=None):
+        """
+        Does nothing. For scikit-learn compatibility purposes.
+        """
         return self
 
 
