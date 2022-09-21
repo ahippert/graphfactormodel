@@ -8,8 +8,10 @@ from sklearn.cluster import SpectralClustering
 from sknetwork.clustering import KMeans, Louvain
 from StructuredGraphLearning.LearnGraphTopology import LearnGraphTopology
 from StructuredGraphLearning.utils import Operators
+from StructuredGraphLearning.optimizer import Optimizer
 from .utils import disable_tqdm
 from networkx import from_numpy_matrix
+import time
 
 
 # -------------------------------------------------------------------------
@@ -330,11 +332,569 @@ class NGL(BaseEstimator, TransformerMixin):
 
         return self
 
+    def transform(self, X, **args):
+        """
+        Does nothing. For scikit-learn compatibility purposes.
+        """
+        return self.precision_
+
+# -------------------------------------------------------------------------
+# Class Heavy-Tail Graph Learning
+# -------------------------------------------------------------------------
+class HeavyTailGL(BaseEstimator, TransformerMixin):
+    """
+    Heavy Tail Graph Learning.
+
+    This class is the Python implementation of the Nonconvex Graph Learning (NGL) algorithm
+    as proposed in:
+
+    Ying J., Cardoso J. and Palomar D.P. "Nonconvex Sparse Graph Learning under Laplacian
+    Constrained Graphical Model". Neurips, 2020.
+
+    For the initial R package, please visit https://github.com/mirca/sparseGraph
+
+    Parameters
+    ----------
+    operator : type, default=Operators()
+        Always initialized as an instance of the Operators() class. Useful to compute
+        laplacian and other operators.
+    """
+    def __init__(
+        self,
+        heavy_type="gaussian",
+        w0_type="naive",
+        operator=Operators(), # Contains useful graph operators (laplacian, adjacency, etc.)
+        optim=Optimizer(),
+        nu=None,
+        deg=1,
+        rho=1,
+        update_rho=True,
+        maxiter=1000,
+        reltol=1e-5,
+        verbosity=1
+    ):
+        self.heavy_type = heavy_type
+        self.w0_type = w0_type
+        self.operator = operator
+        self.optim = optim
+        self.nu = nu
+        self.deg = deg
+        self.rho = rho
+        self.update_rho = update_rho
+        self.maxiter = maxiter
+        self.reltol = reltol
+        self.verbosity = verbosity
+
+    # def _dstar(self, d):
+    #     """d* operator (see Cardoso 2021, Neurips)
+    #     """
+    #     N = len(d)
+    #     k = int(0.5*N*(N-1))
+    #     dw = np.zeros(k)
+    #     j, l = 0, 1
+    #     for i in range(k):
+    #         dw[i] = d[j] + d[l]
+    #         if l==(N-1):
+    #             j = j+1
+    #             l = j+1
+    #         else:
+    #             l = l+1
+    #     return dw
+
+    def _dstar(self, d):
+        """d* operator (see Cardoso 2021, Neurips)
+        """
+        return self.operator.Lstar(np.diag(d))
+
+    def _Ainv(self, X):
+        """Ainv operator (see Cardoso, 2021)
+        
+        C++ implementation available at:
+        https://github.com/dppalomar/spectralGraphTopology/blob/master/src/operators.cc
+        """
+        n, _ = X.shape
+        k = int(0.5*n*(n-1))
+        w = np.zeros(k)
+        l = 0
+        for i in range(n):
+            for j in range(i+1, n):
+                w[l] = X[i,j]
+                l = l+1
+        return w
+
+    def _compute_student_weights(self, w, LstarSq, p) :
+        """ Compute graph weights for t-distributed data
+        """
+        return (p+self.nu) / (np.sum(w*LstarSq) + self.nu)
+
+
+    def _compute_augmented_lagrangian(self, w, LstarSq, theta, J, Y, y, n, p):
+
+        #print(np.sum(theta+J))
+        eig = np.linalg.eigvals(theta + J)
+        Lw = self.operator.L(w)
+        Dw = np.diag(Lw)
+        u_func = 0
+        if self.heavy_type=="student":
+            for q in range(n):
+                u_func = u_func + (p+self.nu)*np.log(1 + n*np.sum(w*LstarSq[q])/self.nu)
+        else:
+            for q in range(n):
+                u_func = u_func + np.sum(n*w*LstarSq[q])
+  
+        u_func = u_func/n
+        return (u_func - np.sum(np.log(eig)) + np.sum(y*(Dw-self.deg)) \
+                + np.sum(np.diag(Y@(theta - Lw))) \
+                + .5*self.rho*(np.linalg.norm(Dw-self.deg)**2 \
+                               + np.linalg.norm(Lw-theta, 'fro')**2))
+
+
+
+    def _learn_regular_heavytail_graph(self, X):
+
+        n, p = X.shape
+
+        # store cross-correlations to avoid multiple computation of the same quantity
+        xxt = [np.vstack(X[i])@X[i][np.newaxis,] for i in range(n)]
+        Lstar_seq = [self.operator.Lstar(xxt[i])/(n-1) for i in range(n)]
+
+        # Compute Sample covariance matrix from data
+        cor = np.corrcoef(X.T)
+
+        # Compute quantities on the initial guess
+        w = self.optim.w_init(self.w0_type, np.linalg.pinv(cor))
+        Aw0 = self.operator.A(w)
+        Aw0 /= np.sum(Aw0, axis=1)
+        Aw0[np.isnan(Aw0)] = 0.
+        w = self._Ainv(Aw0)
+
+        J = (1/p)*np.ones((p,p))
+
+        # Initialization of the precision matrix (theta)
+        Lw = self.operator.L(w)
+        theta = Lw
+
+        # Initialize dual variables by zero
+        Y = np.zeros((p,p))
+        y = np.zeros(p)
+
+        # ADMM constants
+        mu, tau = 2, 2
+
+        # Residual vectors
+        primal_lap_residual = []
+        primal_deg_residual = []
+        dual_residual = []
+        rel_error_seq = []
+    
+        # Augmented lagrangian vector
+        lagrangian = []
+    
+        elapsed_time = []
+        start_time = time.time()
+
+        for i in range(self.maxiter):
+
+            # Update w
+            LstarLw = self.operator.Lstar(Lw)
+            DstarDw = self._dstar(np.diag(Lw))
+
+            Lstar_S_weighted = np.zeros(int(0.5*p*(p-1)))
+
+            if self.heavy_type=='student':
+                for q in range(n):
+                    Lstar_S_weighted = Lstar_S_weighted \
+                        + Lstar_seq[q] * self._compute_student_weights(w, Lstar_seq[q], p)
+            else:
+                for q in range(n):
+                    Lstar_S_weighted = Lstar_S_weighted + Lstar_seq[q]
+
+            grad = Lstar_S_weighted - self.operator.Lstar(self.rho*theta + Y) \
+                + self._dstar(y - self.rho*self.deg) + self.rho*(LstarLw + DstarDw)
+
+            eta = 1/(2*self.rho*(2*p - 1))
+            wi = w - eta*grad
+            wi[wi<0] = 0.
+            Lwi = self.operator.L(wi)
+
+            # Update theta (precision matrix)
+            Z = self.rho*(Lwi + J) - Y
+            
+            U, Lambda, _ = np.linalg.svd(Z)
+            D = Lambda + np.sqrt(Lambda**2 + 4*self.rho)
+            thetai = U@np.diag(D/(2*self.rho))@U.T - J
+
+            # update Y
+            R1 = thetai - Lwi
+            Y = Y + self.rho*R1
+            # update y
+            R2 = np.diag(Lwi) - self.deg
+            y = y + self.rho*R2
+
+            # compute infinity norm of r for convergence
+            primal_residual_R1 = np.linalg.norm(R1, 'fro')
+            primal_residual_R2 = np.linalg.norm(R2)
+            dual_residual = np.linalg.norm(self.rho*self.operator.Lstar(theta - thetai))
+
+            lagrangian = self._compute_augmented_lagrangian(wi, Lstar_seq, thetai,
+                                                            J, Y, y, n, p)
+
+            # update rho
+            if self.update_rho:
+                s = self.rho * np.linalg.norm(self.operator.Lstar(theta - thetai))
+                r = np.linalg.norm(R1, 'fro')
+                if r > mu*s:
+                    self.rho = self.rho*tau
+                elif s > mu*r:
+                    self.rho = self.rho/tau
+                else:
+                    self.rho = self.rho
+
+            rel_error_seq.append(np.linalg.norm(Lw - Lwi, 'fro') / np.linalg.norm(Lw, 'fro'))
+            self.has_converged = (rel_error_seq[i] < self.reltol) and (i > 0)
+            elapsed_time = time.time() - start_time
+
+            if self.has_converged:
+                break
+
+            w = wi
+            Lw = Lwi
+            theta = thetai
+
+        return {"laplacian": self.operator.L(wi), "adjacency": self.operator.A(wi),
+                "precision": thetai, "maxiter": i, "convergence": self.has_converged,
+                "time": elapsed_time, "relative_error": rel_error_seq}
+
+
+    def fit(self, X, y=None):
+        """
+        Fit the model according to the given training data.
+
+        The first step is the estimation of the covariance matrix.
+
+        The second step consists in learning the graph.
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_components, n_samples)
+            Training vector, where 'n_samples' is the number of samples and
+            'n_components' is the number of components or features.
+
+        y : 
+        """
+        #if self.cov_type == 'scm':
+        #    S = self.S_estimation_method(X, *self.S_estimation_args)
+
+        # Doing estimation
+        if self.verbosity>=1:
+            results = self._learn_regular_heavytail_graph(X)
+
+        # Saving results
+        self.precision_ = results['adjacency']
+        self.covariance_ = np.linalg.inv(self.precision_)
+
+        return self
+
     def transform(self, X, y=None):
         """
         Does nothing. For scikit-learn compatibility purposes.
         """
+        return self.precision_
+
+# -------------------------------------------------------------------------
+# Class Heavy-Tail k-component Graph Learning
+# -------------------------------------------------------------------------
+class HeavyTailkGL(BaseEstimator, TransformerMixin):
+    """
+    Heavy Tail Graph Learning.
+
+    This class is the Python implementation of the Nonconvex Graph Learning (NGL) algorithm
+    as proposed in:
+
+    Ying J., Cardoso J. and Palomar D.P. "Nonconvex Sparse Graph Learning under Laplacian
+    Constrained Graphical Model". Neurips, 2020.
+
+    For the initial R package, please visit https://github.com/mirca/sparseGraph
+
+    Parameters
+    ----------
+    operator : type, default=Operators()
+        Always initialized as an instance of the Operators() class. Useful to compute
+        laplacian and other operators.
+    """
+    def __init__(
+        self,
+        heavy_type="gaussian",
+        w0_type="naive",
+        operator=Operators(), # Contains useful graph operators (laplacian, adjacency, etc.)
+        optim=Optimizer(),
+        k=1,
+        nu=None,
+        deg=1,
+        rho=1,
+        beta=1e-8,
+        update_rho=True,
+        update_beta=True,
+        early_stopping=False,
+        maxiter=1000,
+        reltol=1e-5,
+        verbosity=1
+    ):
+        self.heavy_type = heavy_type
+        self.w0_type = w0_type
+        self.operator = operator
+        self.optim = optim
+        self.k = k
+        self.nu = nu
+        self.deg = deg
+        self.rho = rho
+        self.beta = beta
+        self.update_rho = update_rho
+        self.update_beta = update_beta
+        self.early_stopping = early_stopping
+        self.maxiter = maxiter
+        self.reltol = reltol
+        self.verbosity = verbosity
+
+    # def _dstar(self, d):
+    #     """d* operator (see Cardoso 2021, Neurips)
+    #     """
+    #     N = len(d)
+    #     k = int(0.5*N*(N-1))
+    #     dw = np.zeros(k)
+    #     j, l = 0, 1
+    #     for i in range(k):
+    #         dw[i] = d[j] + d[l]
+    #         if l==(N-1):
+    #             j = j+1
+    #             l = j+1
+    #         else:
+    #             l = l+1
+    #     return dw
+
+    def _dstar(self, d):
+        """d* operator (see Cardoso 2021, Neurips)
+        """
+        return self.operator.Lstar(np.diag(d))
+
+    def _Ainv(self, X):
+        """Ainv operator (see Cardoso, 2021)
+        
+        C++ implementation available at:
+        https://github.com/dppalomar/spectralGraphTopology/blob/master/src/operators.cc
+        """
+        n, _ = X.shape
+        k = int(0.5*n*(n-1))
+        w = np.zeros(k)
+        l = 0
+        for i in range(n):
+            for j in range(i+1, n):
+                w[l] = X[i,j]
+                l = l+1
+        return w
+
+    def _compute_student_weights(self, w, LstarSq, p) :
+        """ Compute graph weights for t-distributed data
+        """
+        return (p+self.nu) / (np.sum(w*LstarSq) + self.nu)
+
+
+    def _compute_augmented_lagrangian_kcomp(self, w, LstarSq, theta,
+                                            U, Y, y, n, p):
+
+
+        eigvals, _ = np.linalg.eigh(theta)
+        eigvals = eigvals[self.k:p]
+        Lw = self.operator.L(w)
+        Dw = np.diag(Lw)
+        u_func = 0
+        if self.heavy_type=="student":
+            for q in range(n):
+                u_func = u_func + (p+self.nu)*np.log(1 + n*np.sum(w*LstarSq[q])/self.nu)
+        else:
+            for q in range(n):
+                u_func = u_func + np.sum(n*w*LstarSq[q])
+  
+        u_func = u_func/n
+        return (u_func - np.sum(np.log(eigvals)) + np.sum(y*(Dw-self.deg)) \
+                + np.sum(np.diag(Y@(theta - Lw))) \
+                + .5*self.rho*(np.linalg.norm(Dw-self.deg)**2 \
+                               + np.linalg.norm(Lw-theta, 'fro')**2) \
+                + self.beta*np.sum(w*self.operator.Lstar(U@U.T)))
+
+    def _learn_kcomp_heavytail_graph(self, X):
+
+        n, p = X.shape
+
+        # store cross-correlations to avoid multiple computation of the same quantity
+        xxt = [np.vstack(X[i])@X[i][np.newaxis,] for i in range(n)]
+        Lstar_seq = [self.operator.Lstar(xxt[i])/n for i in range(n)]
+
+        # Compute Sample covariance matrix from data
+        cor = np.corrcoef(X.T)
+
+        # Compute quantities on the initial guess
+        w = self.optim.w_init(self.w0_type, np.linalg.pinv(cor))
+        Aw0 = self.operator.A(w)
+        Aw0 /= np.sum(Aw0, axis=1)
+        #Aw0[np.isnan(Aw0)] = 0.
+        w = self._Ainv(Aw0)
+
+        # Initialization of the precision matrix (theta)
+        Lw = self.operator.L(w)
+        theta = Lw
+
+        _, U = np.linalg.eigh(Lw)
+        U = U[:, self.k:p]
+
+        # Initialize dual variables by zero
+        Y = np.zeros((p,p))
+        y = np.zeros(p)
+
+        # ADMM constants
+        mu, tau = 2, 2
+
+        # Residual vectors
+        primal_lap_residual = []
+        primal_deg_residual = []
+        dual_residual = []
+        beta_seq = []
+        rel_error_seq = []
+    
+        # Augmented lagrangian vector
+        lagrangian = []
+    
+        elapsed_time = []
+        start_time = time.time()
+
+        for i in range(self.maxiter):
+
+            # Update w
+            LstarLw = self.operator.Lstar(Lw)
+            DstarDw = self._dstar(np.diag(Lw))
+
+            Lstar_S_weighted = np.zeros(int(0.5*p*(p-1)))
+
+            if self.heavy_type=='student':
+                for q in range(n):
+                    Lstar_S_weighted = Lstar_S_weighted \
+                        + Lstar_seq[q] * self._compute_student_weights(w, Lstar_seq[q], p)
+            else:
+                for q in range(n):
+                    Lstar_S_weighted = Lstar_S_weighted + Lstar_seq[q]
+
+            grad = Lstar_S_weighted \
+                + self.operator.Lstar(self.beta*U@U.T - Y - self.rho*theta) \
+                + self._dstar(y - self.rho*self.deg) + self.rho*(LstarLw + DstarDw)
+
+            eta = 1/(2*self.rho*(2*p - 1))
+            wi = w - eta*grad
+            wi[wi<0] = 0.
+            Lwi = self.operator.L(wi)
+
+            # Update U
+            _, U = np.linalg.eigh(Lwi)
+            U = U[:, :self.k]
+
+            # Update theta (precision matrix)
+            Z = self.rho*Lwi - Y
+            
+            Lambda, V = np.linalg.eigh(Z)
+            V = V[:, self.k:p]
+            Lambda = Lambda[self.k:p]
+            D = Lambda + np.sqrt(Lambda**2 + 4*self.rho)
+            thetai = V@np.diag(D/(2*self.rho))@V.T
+
+            # update Y
+            R1 = thetai - Lwi
+            Y = Y + self.rho*R1
+            # update y
+            R2 = np.diag(Lwi) - self.deg
+            y = y + self.rho*R2
+
+            # compute infinity norm of r for convergence
+            primal_residual_R1 = np.linalg.norm(R1, 'fro')
+            primal_residual_R2 = np.linalg.norm(R2)
+            dual_residual = np.linalg.norm(self.rho*self.operator.Lstar(theta - thetai))
+
+            lagrangian = self._compute_augmented_lagrangian_kcomp(wi, Lstar_seq, thetai,
+                                                                  U, Y, y, n, p)
+
+            # update rho
+            if self.update_rho:
+                s = self.rho * np.linalg.norm(self.operator.Lstar(theta - thetai))
+                r = np.linalg.norm(R1, 'fro')
+                if r > mu*s:
+                    self.rho = self.rho*tau
+                elif s > mu*r:
+                    self.rho = self.rho/tau
+                else:
+                    self.rho = self.rho
+
+            # update beta
+            if self.update_beta:
+                _, eigvals, _ = np.linalg.svd(Lwi)
+                n_zero_eigenvalues = np.sum(eigvals < 1e-9)
+                if self.k < n_zero_eigenvalues:
+                    self.beta = .5*self.beta
+                elif self.k > n_zero_eigenvalues:
+                    self.beta = 2*self.beta
+                else:
+                    if self.early_stopping:
+                        has_converged = True
+                        break
+                beta_seq.append(self.beta)
+
+            rel_error_seq.append(np.linalg.norm(Lw - Lwi, 'fro') / np.linalg.norm(Lw, 'fro'))
+            self.has_converged = (rel_error_seq[i] < self.reltol) and (i > 0)
+            elapsed_time = time.time() - start_time
+
+            if self.has_converged:
+                break
+
+            w = wi
+            Lw = Lwi
+            theta = thetai
+
+        return {"laplacian": self.operator.L(wi), "adjacency": self.operator.A(wi),
+                "precision": thetai, "maxiter": i, "convergence": self.has_converged,
+                "time": elapsed_time, "relative_error": rel_error_seq}
+
+
+    def fit(self, X, y=None):
+        """
+        Fit the model according to the given training data.
+
+        The first step is the estimation of the covariance matrix.
+
+        The second step consists in learning the graph.
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_components, n_samples)
+            Training vector, where 'n_samples' is the number of samples and
+            'n_components' is the number of components or features.
+
+        y : 
+        """
+        #if self.cov_type == 'scm':
+        #    S = self.S_estimation_method(X, *self.S_estimation_args)
+
+        # Doing estimation
+        if self.verbosity>=1:
+            results = self._learn_kcomp_heavytail_graph(X)
+
+        # Saving results
+        self.precision_ = results['adjacency']
+        self.covariance_ = np.linalg.inv(self.precision_)
+
         return self
+
+    def transform(self, X, y=None):
+        """
+        Does nothing. For scikit-learn compatibility purposes.
+        """
+        return self.precision_
 
 
 # ### Test script ###
