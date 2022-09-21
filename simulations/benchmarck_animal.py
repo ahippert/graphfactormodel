@@ -14,7 +14,7 @@ from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.cluster import SpectralClustering
 
 from sknetwork.embedding import PCA
-from src.estimators import SGLkComponents, NGL, GLasso, kmeans, louvain
+from src.estimators import SGLkComponents, NGL, GLasso, kmeans, louvain, HeavyTailkGL
 
 if __name__ == "__main__":
 
@@ -71,18 +71,28 @@ if __name__ == "__main__":
         ('Centering', pre_processing),
         ('Graph Estimation', SGLkComponents(
             None, maxiter=1000, record_objective=True, record_weights=True,
-            beta = 0.5, k=6, S_estimation_args=[1./3], verbosity=1))
+            beta = 0.5, k=6, S_estimation_args=[1./3], verbosity=1)),
+        ('KMeans', kmeans(n_clusters=n_clusters, embedding_method=PCA()))
         ]
     )
     NGL = Pipeline(steps=[
         ('Centering', pre_processing),
-        ('Graph Estimation', NGL(S_estimation_args=[1./3], maxiter=100, record_objective=True))
+        ('Graph Estimation', NGL(S_estimation_args=[1./3], maxiter=100, record_objective=True)),
+        ('Louvain', louvain(shuffle_nodes=True, n_aggregations=n_clusters))
+        ]
+    )
+
+    StudentGL = Pipeline(steps=[
+        ('Centering', pre_processing),
+        ('Graph Estimation', HeavyTailkGL(
+            heavy_type='student', k=6, nu=1e3)),
+        ('Louvain', louvain(shuffle_nodes=True, n_aggregations=n_clusters))
         ]
     )
 
 
-    list_names = ['GLasso', 'SGL', 'NGL']
-    list_pipelines = [GLasso, SGL, NGL]
+    list_names = ['GLasso', 'SGL', 'NGL', 'StudentGL']
+    list_pipelines = [GLasso, SGL, NGL, StudentGL]
 
     # Doing estimation
     for pipeline, name in zip(list_pipelines, list_names):
