@@ -5,7 +5,7 @@ from scipy.sparse import csr_matrix
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.covariance import EmpiricalCovariance, empirical_covariance, GraphicalLasso
 from sklearn.cluster import SpectralClustering
-from sknetwork.clustering import KMeans, Louvain
+from sknetwork.clustering import KMeans, Louvain, PropagationClustering
 from StructuredGraphLearning.LearnGraphTopology import LearnGraphTopology
 from StructuredGraphLearning.utils import Operators
 from StructuredGraphLearning.optimizer import Optimizer
@@ -19,9 +19,13 @@ import time
 # -------------------------------------------------------------------------
 class louvain(Louvain):
     def fit(self, X, y=None, force_bipartite=False):
-        return super().fit(csr_matrix(X), force_bipartite)  
+        return super().fit(csr_matrix(X))  
 
 class kmeans(KMeans):
+    def fit(self, X, y=None):
+        return super().fit(csr_matrix(X))
+
+class propagation(PropagationClustering):
     def fit(self, X, y=None):
         return super().fit(csr_matrix(X))
 
@@ -102,15 +106,20 @@ class SGLkComponents(EmpiricalCovariance, TransformerMixin):
                 results = self.estimator.learn_k_component_graph(*self._FIT_ATTR_VALUES)
 
         # Saving results
-        self.precision_ = results['adjacency']
-        self.covariance_ = np.linalg.inv(self.precision_)
+        #self.laplacian_ = results['laplacian']
+        #self.precision_ = results['adjacency']
+        self.results_ = results
+        #self.covariance_ = np.linalg.inv(results['adjacency'])
         for key in results.keys():
             setattr(self, key+'_', results[key])
 
         return self
 
     def transform(self, X, **args):
-        return self.adjacency_
+        return self.results_
+
+    def fit_transform(self, X, y=None, **fit_params):
+        return self.fit(X, **fit_params).transform(X)
 
 
 # -------------------------------------------------------------------------
@@ -337,6 +346,9 @@ class NGL(BaseEstimator, TransformerMixin):
         Does nothing. For scikit-learn compatibility purposes.
         """
         return self.precision_
+
+    def fit_transform(self, X, y=None, **fit_params):
+        return self.fit(X, **fit_params).transform(X)
 
 # -------------------------------------------------------------------------
 # Class Heavy-Tail Graph Learning
@@ -600,6 +612,9 @@ class HeavyTailGL(BaseEstimator, TransformerMixin):
         Does nothing. For scikit-learn compatibility purposes.
         """
         return self.precision_
+
+    def fit_transform(self, X, y=None, **fit_params):
+        return self.fit(X, **fit_params).transform(X)
 
 # -------------------------------------------------------------------------
 # Class Heavy-Tail k-component Graph Learning
@@ -895,6 +910,9 @@ class HeavyTailkGL(BaseEstimator, TransformerMixin):
         Does nothing. For scikit-learn compatibility purposes.
         """
         return self.precision_
+
+    def fit_transform(self, X, y=None, **fit_params):
+        return self.fit(X, **fit_params).transform(X)
 
 
 # ### Test script ###
