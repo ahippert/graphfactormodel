@@ -1,7 +1,7 @@
 
 
 import numpy as np
-from .utils import invsqrtm
+from utils import invsqrtm
 
 
 def negative_log_likelihood_complex_student_t(X, Sigma, df):

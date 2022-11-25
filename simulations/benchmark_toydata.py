@@ -9,20 +9,18 @@ import matplotlib.pyplot as plt
 
 from sklearn.covariance import GraphicalLasso
 from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import make_pipeline
+from sklearn.pipeline import Pipeline
 from sklearn import cluster, manifold
 from sklearn.datasets import make_moons, make_circles
 
 import src.visualization as vis
-from src.estimators import SGLkComponents
+from src.estimators import GLasso, SGLkComponents
 from src.utils import format_pipeline_name
-
 
 def S_estimation_method(X, *args):
     return np.dot(X, X.T)
 
 if __name__ == "__main__":
-
 
     np.random.seed(0)
 
@@ -38,15 +36,19 @@ if __name__ == "__main__":
     pre_processing = StandardScaler(with_mean=True, with_std=False)
 
     # Estimators compared
-    Glasso = make_pipeline(
-        pre_processing, GraphicalLasso(alpha=0.05)
+    GLasso = Pipeline(steps=[
+            ('Centering', pre_processing),
+            ('Graph Estimation', GLasso(alpha=0.05)),
+            #('Clustering', louvain(modularity='Newman', n_aggregations=n_clusters))
+        ]
     )
-    SGL = make_pipeline(
-        pre_processing,
-        SGLkComponents(
+    SGL = Pipeline(steps=[
+        ('Centering', pre_processing),
+        ('Graph Estimation', SGLkComponents(
             None, maxiter=1000, record_objective=True, record_weights=True,
-            beta = 0.1, k=k, verbosity=1, S_estimation_method=S_estimation_method
-        )
+            beta = 0.1, k=2, verbosity=1, S_estimation_method=S_estimation_method)),
+        #('Clustering', louvain(modularity='Newman', n_aggregations=n_clusters))
+        ]
     )
 
     # Iterate over datasets
@@ -60,13 +62,13 @@ if __name__ == "__main__":
             pos[i] = X[i]
 
         # Doing estimation
-        for pipeline in [SGL]:
+        for pipeline in [GLasso, SGL]:
             pipeline_dataset = deepcopy(pipeline)
             print("----------------------------------------------------------")
             name = format_pipeline_name(pipeline_dataset)
             print("Doing estimation with :", name)
             print(pipeline_dataset)
-            pipeline_dataset.fit(X)
+            pipeline_dataset.fit_transform(X)
             graph = nx.from_numpy_matrix(pipeline_dataset[-1].precision_)
             # Visualization - using networkx
             vis.visualize_simple_graph(X.T, graph, pos)

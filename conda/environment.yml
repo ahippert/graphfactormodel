@@ -23,6 +23,7 @@ dependencies:
 - plotly
 - seaborn
 - tqdm
+- pyvis
 - ipython
 - jupyter
 - numba
@@ -36,6 +37,5 @@ dependencies:
   - jraph
   - wget
   - "networkx[default]"
-  - pyvis
   - scikit-network
   - git+https://github.com/HIPS/autograd.git

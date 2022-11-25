@@ -12,7 +12,7 @@ eval cd $SCRIPT_DIR
 
 # create conda environment
 echo "Creating conda environment graphfactormodels"
-conda env create -f conda/environment.yml
+conda env create -f Documents/graphfactormodel/conda/environment.yml
 
 # Activating environment for isntalling further stuff
 eval "$(conda shell.bash hook)"  # bug fix: https://github.com/conda/conda/issues/7980#issuecomment-492784093 
