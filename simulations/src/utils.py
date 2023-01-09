@@ -152,7 +152,6 @@ def sample_complex_multivariate_t(
     )
 
 
-
 def arraytoreal(a):
     """Returns a real equivalent of input complex array used in various taks.
     Parameters

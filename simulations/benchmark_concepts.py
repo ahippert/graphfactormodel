@@ -92,8 +92,8 @@ if __name__ == "__main__":
         ]
     )
 
-    list_names = ['SGL']#, 'NGL', 'StudentGL']
-    list_pipelines = [SGL]#, NGL, StudentGL]
+    list_names = ['EllGL']#, 'NGL', 'StudentGL']
+    list_pipelines = [EllGL]#, NGL, StudentGL]
 
     # Doing estimation
     for pipeline, name in zip(list_pipelines, list_names):

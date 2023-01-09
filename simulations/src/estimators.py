@@ -137,7 +137,8 @@ class SGLkComponents(EmpiricalCovariance, TransformerMixin):
 
         # Saving results
         #self.laplacian_ = results['laplacian']
-        self.precision_ = results['adjacency']
+        self.adjacency_ = results['adjacency']
+        self.precision_ = results['laplacian']
         self.results_ = results
         #self.covariance_ = np.linalg.inv(results['adjacency'])
         for key in results.keys():
@@ -205,7 +206,7 @@ class NGL(BaseEstimator, TransformerMixin):
         S_estimation_method=S_regularized_empirical_covariance,
         S_estimation_args=[0],
         lamda=0.5,
-        maxiter=50,
+        maxiter=1000,
         reltol=0.0001,
         record_objective=False,
         backtrack=True,
@@ -367,7 +368,8 @@ class NGL(BaseEstimator, TransformerMixin):
 
         # Saving results
         self.results_ = results
-        self.precision_ = results['precision']
+        #self.precision_ = results['precision']
+        self.precision_ = results['laplacian']
         #self.covariance_ = np.linalg.inv(self.precision_)
 
         return self
@@ -932,8 +934,8 @@ class HeavyTailkGL(BaseEstimator, TransformerMixin):
             results = self._learn_kcomp_heavytail_graph(X)
 
         # Saving results
-        self.precision_ = results['adjacency']
-        self.covariance_ = np.linalg.inv(self.precision_)
+        self.precision_ = results['precision']
+        #self.covariance_ = np.linalg.inv(self.precision_)
         self.results_ = results
 
         return self
@@ -1104,9 +1106,9 @@ class EllipticalGL(BaseEstimator, TransformerMixin):
 
             # Declare problem
             if self.geometry=="SPD":
-                problem = Problem(manifold=manifold_SPD, cost=cost, egrad=egrad, verbosity=1)
+                problem = Problem(manifold=manifold_SPD, cost=cost, egrad=egrad, verbosity=self.verbosity)
             else:
-                problem = Problem(manifold=manifold_factor, cost=cost, egrad=egrad, verbosity=1)
+                problem = Problem(manifold=manifold_factor, cost=cost, egrad=egrad, verbosity=self.verbosity)
 
             # perform resolution 
             tmp = solver.solve(problem, x=init_estimate)
@@ -1116,14 +1118,16 @@ class EllipticalGL(BaseEstimator, TransformerMixin):
             # Compute distance between current estimate and initial model
             if self.geometry=="SPD":
                 error_seq.append(10*np.log(manifold_SPD.dist(init_estimate, result_seq[i])**2))
-                print(f"{self.geometry} - lambda={lamb}: {error_seq[i]}")
+                if self.verbosity: print(f"{self.geometry} - lambda={lamb}: {error_seq[i]}")
             else:
                 error_seq.append(10*np.log(manifold_SPD.dist(mapFactor2SPD(init_estimate),
                                                              mapFactor2SPD(result_seq[i]))**2))
-                print(f"{self.geometry} - lambda={lamb}: {error_seq[i]}")
-
+                if self.verbosity: print(f"{self.geometry} - lambda={lamb}: {error_seq[i]}")
+                
             # Update initializations
             init_estimate = tmp
+
+            #i = i+1
 
         # Get estimate whose distance is minimal and graph matrices
         ind_estimate = -1#np.argmin(np.abs(error_seq))
@@ -1142,17 +1146,17 @@ class EllipticalGL(BaseEstimator, TransformerMixin):
             precision_matrix = np.linalg.pinv(LR_matrix)
 
         # Normalisation
-        d = 1/np.sqrt(np.diag(precision_matrix))
-        precision_matrix = np.diag(d) @ precision_matrix @ np.diag(d)
-        print(precision_matrix)
+        #d = 1/np.sqrt(np.diag(precision_matrix))
+        #precision_matrix = np.diag(d) @ precision_matrix @ np.diag(d)
 
-        precision_matrix[precision_matrix>0] = 0.
+        #precision_matrix[precision_matrix>0] = 0.
 
         # diag qui se somme
-        
-        precision = np.abs(precision_matrix)
-        precision[precision<1e-2] = 0.
-        np.fill_diagonal(precision, 0.)
+
+        precision = precision_matrix
+        #precision = np.abs(precision_matrix)
+        #precision[np.abs(precision)<1e-2] = 0.
+        #np.fill_diagonal(precision, 0.)
         
         return {"covariance": final_estimate, "precision": precision,
                 "error_seq": error_seq, "result_seq": result_seq}
@@ -1183,8 +1187,8 @@ class EllipticalGL(BaseEstimator, TransformerMixin):
             self.S = S
 
         # Doing estimation
-        if self.verbosity>=1:
-            results = self._learn_graph(X)
+        #if self.verbosity>=1:
+        results = self._learn_graph(X)
 
         # Saving results
         self.results_ = results
