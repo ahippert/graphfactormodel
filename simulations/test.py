@@ -1,2 +1,0 @@
-import sknetwork
-print('test')
