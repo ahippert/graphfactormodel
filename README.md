@@ -5,8 +5,9 @@ This repository contains code used to produce results showcased in the paper:
 Graph Learning meets regularized factor models,
 Florent Bouchard, Arnaud Breloy, Alexandre Hippert-Ferrer, Ammar Mian, Titouan Vayer
 ```
-submitted at the conference NEURIPS 2022. The draft of the article is available on arXiv:
-[url a remplir](url a remplir).
+
+The draft of the article is available on arXiv:
+[XXXX](XXXX).
 
 
 ## Repository organisation
@@ -15,25 +16,27 @@ submitted at the conference NEURIPS 2022. The draft of the article is available 
 ├── conda/
 │   └── environment.yml
 ├── data/
-│   ├── genomics
-│   ├── networks
+│   ├── gps_up.npy
+|   ├── gps_up_2014_2022.npy
 │   └── animal.mat
-├── results/
-│   ├── numerical/
-│   │   └── benchmark_toydata.py
-│   └── applications/
-│       └── benchmark_animaldata.py
 ├── src/
 │   ├── utils.py
+│   ├── elliptical_estimation.py
+│   ├── estimators.py
+│   ├── manifolds.py
 │   ├── models.py
-│   ├── optimization.py
-│   ├── data.py
-│   ├── pca.py
+│   ├── NGL.py
+│   ├── sparse_penalties.py
+│   ├── studentGL.py
 │   └── visualization.py
 ├── simulations/
-│   ├── numerical
-│   └── applications
+│   ├── ROC_curves.py
+│   ├── benchmark_animal.py
+│   ├── benchmark_models.py
+│   ├── benchmark_concepts.py
+│   └── graphical_models.py
 ├── install.sh
+├── LICENCE
 └── README.md
 ```
 
@@ -63,19 +66,22 @@ It is then necessary to have either miniconda or Anaconda available:
 
     Then running a simulation is easily done using python. For example, run:
     ```
-    python simulations/numerical/gaussian_model.py
+    python simulations/graphical_models.py
     ```
-    to run a numerical simulation with Gaussian distributed data.
+    to generate and visualize the considered graph structures.
 
 ## Simulations and paper results match
 
-The following correspondance table shows the files (all situated in folder **simulations/**) used to produce the tables and figures presented in the paper:
-| File                         | Produces Table | Produces Figure |
-|------------------------------|----------------|-----------------|
-| numerical/gaussian_model.py  |                | (1)             |
-| blabla                       |                | (2), (3)        |
-| blabla 2                     | (1), (2)       |                 |
-| applications/genomic_data.py | (3)            |                 |
+The following correspondance table shows the files (all situated in folder **simulations/**) used to produce the figures presented in the paper:
+| File                            | Produces Figure             |
+|---------------------------------|-----------------------------|
+| simulations/graphical_models.py | (1) in Suppl. material      |
+| simulations/ROC_curves.py       | (2)--(7) in Suppl. material |
+| simulations/benchmark_animal.py | (1) in main paper           |
+| simulations/benchmark_gps.py    | (2) in main paper           |
+| simulations/benchmark_concepts  | (8), (9** in Suppl. material |
+
+**Please see the documentation to know how to use the above scripts.**
 
 ## Authors
 
