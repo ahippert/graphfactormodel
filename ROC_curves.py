@@ -1,5 +1,5 @@
 import numpy as np
-import sys
+import sys, os
 import argparse
 import networkx as nx
 
@@ -361,7 +361,11 @@ def main():
 
     plt.title("{} - {} graph - n={}".format(args.method, args.graph, args.samples))
     if args.save:
-        plt.savefig("{}_{}_n={}_{}_ROC.pdf".format(args.method, args.graph, args.samples, args.roc))
+        path_to_file = os.path.dirname(__file__)
+        path_to_results = path_to_file + '/results'
+        if not os.path.isdir(path_to_results):
+            os.makedirs(path_to_results)
+        plt.savefig(path_to_results + "/{}_{}_n={}_{}_ROC.pdf".format(args.method, args.graph, args.samples, args.roc))
     plt.show()
 
 if __name__ == "__main__":
