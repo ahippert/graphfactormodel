@@ -18,13 +18,13 @@ from sknetwork.clustering import get_modularity, Louvain
 
 import networkx.algorithms.community as nx_comm
 
-from src.estimators import SGLkComponents, NGL, GLasso, kmeans, propagation, HeavyTailkGL, EllipticalGL
+from src.estimators import SGLkComponents, NGL, GLasso, HeavyTailkGL, EllipticalGL
 
 if __name__ == "__main__":
 
     # Load animal dataset (Osherson et al., 1991; Lake and Tenenbaum, 2010)
     file_path = os.path.dirname(__file__)
-    data_path = os.path.join(file_path, "../data/animals.mat")
+    data_path = os.path.join(file_path, "./data/animals.mat")
     data = scipy.io.loadmat(data_path)
 
     names_array = data['names']
@@ -111,8 +111,8 @@ if __name__ == "__main__":
 
     GGM = Pipeline(steps=[
         ('Centering', pre_processing),
-        ('Graph Estimation', EllipticalGL(geometry="SPD", k=10,
-                                          lambda_seq=[0, 0.075],
+        ('Graph Estimation', EllipticalGL(geometry="SPD",
+                                          lambda_seq=[0.075],
                                           df=1e3)),
         #('Clustering', louvain(shuffle_nodes=True, n_aggregations=n_clusters))
         ]
@@ -120,9 +120,9 @@ if __name__ == "__main__":
     # Modularity=0.44
 
 
-    list_names = [#'GLasso', 'SGL', 'NGL', 'StudentGL',
+    list_names = ['GLasso', 'SGL', 'NGL', 'StudentGL',
                   'GGM', 'EGM', 'GGFM', 'EGFM']
-    list_pipelines = [#GLasso, SGL, NGL, StudentGL,
+    list_pipelines = [GLasso, SGL, NGL, StudentGL,
                       GGM, EGM, GGFM, EGFM]
 
     # Doing estimation
@@ -134,10 +134,19 @@ if __name__ == "__main__":
         pipeline.fit_transform(X)
 
         # Get adjacency matrix to get the graph and clustered labels to compute modularity
-        adjacency = pipeline['Graph Estimation'].precision_
+        precision = pipeline['Graph Estimation'].precision_
+        adjacency = np.abs(precision)
+        if name=='GGFM' or name=='EGFM':
+            tol = 1e-2
+            adjacency[np.abs(adjacency)<tol] = 0.
+        elif name=='GGM' or name=='EGM' or name=='StudentGL':
+            tol = 1e-1
+            adjacency[np.abs(adjacency)<tol] = 0.
+        else:
+            pass
         np.fill_diagonal(adjacency, 0.)
         
-        graph = nx.from_numpy_matrix(adjacency)
+        graph = nx.from_numpy_array(adjacency)
         graph = nx.relabel_nodes(graph, dict_names)
         
         print('Graph statistics:')
