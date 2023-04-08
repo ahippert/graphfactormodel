@@ -20,7 +20,7 @@ conda activate graphfactormodels
 
 # Installing pymanopt outside because it fails with pip whatsoever
 echo "Installing pymanopt"
-#git clone https://github.com/pymanopt/pymanopt
+
 # The version of pymanopt used in the simulaitons is not available anymore on github so we put it in the repository
 cd pymanopt
 python setup.py install
