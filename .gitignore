@@ -17,12 +17,10 @@
 
 # Data
 *.png
-*.pdf
 *.html
 *.log
 *.out 
 *.err
-*.npy
 *.pkl
 *.svg
 
