@@ -17,18 +17,19 @@ from sknetwork.clustering import get_modularity, Louvain
 
 import networkx.algorithms.community as nx_comm
 
-from src.estimators import SGLkComponents, NGL, GLasso, kmeans, propagation, HeavyTailkGL, EllipticalGL
+from src.estimators import SGLkComponents, NGL, GLasso, HeavyTailkGL, EllipticalGL
 
 if __name__ == "__main__":
 
     # Load GNSS dataset (Smitarello et al., 2019
     file_path = os.path.dirname(__file__)
-    #data_path = os.path.join(file_path, "../data/gps_up.npy")
-    data_path = os.path.join(file_path, "../data/gps_up_2014_2022.npy")
+    data_path = os.path.join(file_path, "./data/gps_up.npy")
+    #data_path = os.path.join(file_path, "./data/gps_up_2014_2022.npy")
     data = np.load(data_path)
 
-    #names_array = ['BOMG', 'BORG', 'CASG', 'CRAG', 'DERG', 'DSRG', 'ENCG', 'ENOG', 'FERG', 'FJAG', 'FOAG', 'FREG', 'GBNG', 'GBSG', 'GITG', 'GPNG', 'GPSG','HDLG', 'PRAG', 'RVLG', 'SNEG', 'TRCG']
-    names_array = ['BOMG', 'BORG', 'C98G', 'CASG', 'CRAG', 'DERG', 'DSRG', 'ENCG', 'ENOG', 'FERG', 'FEUG', 'FJAG', 'FOAG', 'FREG', 'GB1G', 'GBNG', 'GBSG', 'GITG', 'GPNG', 'GPSG','HDLG', 'MAIG', 'PBRG', 'PRAG', 'PVDG', 'REUN', 'RVAG', 'RVLG', 'SNEG', 'SROG', 'STAN','STJS', 'TRCG']
+    names_array = ['BOMG', 'BORG', 'CASG', 'CRAG', 'DERG', 'DSRG', 'ENCG', 'ENOG', 'FERG', 'FJAG', 'FOAG', 'FREG', 'GBNG', 'GBSG', 'GITG', 'GPNG', 'GPSG','HDLG', 'PRAG', 'RVLG', 'SNEG', 'TRCG']
+    #names_array = ['BOMG', 'BORG', 'C98G', 'CASG', 'CRAG', 'DERG', 'DSRG', 'ENCG', 'ENOG', 'FERG', 'FEUG', 'FJAG', 'FOAG', 'FREG', 'GB1G', 'GBNG', 'GBSG', 'GITG', 'GPNG', 'GPSG','HDLG', 'MAIG', 'PBRG', 'PRAG', 'PVDG', 'REUN', 'RVAG', 'RVLG', 'SNEG', 'SROG', 'STAN','STJS', 'TRCG']
+
     # Form list of dictionary in the form [(0: 'name1), (1: 'name2'), ...]
     # Used to label each node
     names_array = np.hstack(np.hstack(names_array))
@@ -74,7 +75,7 @@ if __name__ == "__main__":
         ('Imputer', SimpleImputer(missing_values=np.nan, strategy='mean')),
         ('Graph Estimation', EllipticalGL(geometry="factor", k=4,
                                           lambda_seq=[1.5],
-                                          df=5, maxiter=2e4)),
+                                          df=5)),
         ]
     )
     
@@ -107,9 +108,7 @@ if __name__ == "__main__":
     )
 
     list_names = ['StudentGL', 'GGM', 'EGM', 'GGFM', 'EGFM']
-    list_names = ['EGFM']
     list_pipelines = [StudentGL, GGM, EGM, GGFM, EGFM]
-    list_pipelines = [EGFM]
 
     # Doing estimation
     for pipeline, name in zip(list_pipelines, list_names):
@@ -121,9 +120,14 @@ if __name__ == "__main__":
 
         # Get adjacency matrix to get the graph and clustered labels to compute modularity
         adjacency = pipeline['Graph Estimation'].precision_
+        if name=='GGFM' or name=='EGFM' or name=='StudentGL':
+            tol = 1e-2
+        else:
+            tol = 2.5e-2
+        adjacency[np.abs(adjacency)<tol] = 0.
         np.fill_diagonal(adjacency, 0.)
         
-        graph = nx.from_numpy_matrix(adjacency)
+        graph = nx.from_numpy_array(adjacency)
         graph = nx.relabel_nodes(graph, dict_names)
         
         print('Graph statistics:')
@@ -137,7 +141,13 @@ if __name__ == "__main__":
         print(cluster_seq)
 
         # Put uniform weights and save edges for tikz drawing
-        edges = open(f'/home/AHippert-Ferrer/Documents/papiers/AISTATS_2022/edges_test_{name}.dat', "w") # à changer
+        path_to_file = os.path.dirname(__file__)
+        path_to_results = path_to_file + '/results'
+        print(path_to_results)
+        if not os.path.isdir(path_to_results):
+            os.makedirs(path_to_results)
+        edges = open(path_to_results + '/edges_GNSS_{}.dat'.format(name), "w")
+
         #print(graph.edges())
         for i, (u, v, d) in enumerate(graph.edges(data=True)):
             d['weight'] = 1.
@@ -196,6 +206,6 @@ if __name__ == "__main__":
                 for i_crypto in i_cluster:
                     nt.get_node(i_crypto)['color'] = cluster_colors[i_color]
 
-        nt.show(f'gpsdata_{name}.html')
+        nt.show('gpsdata_{}.html'.format(name))
 
     plt.show()

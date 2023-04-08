@@ -17,7 +17,6 @@ The draft of the article is available on arXiv:
 │   └── environment.yml
 ├── data/
 │   ├── gps_up.npy
-|   ├── gps_up_2014_2022.npy
 │   └── animal.mat
 ├── src/
 │   ├── utils.py
@@ -29,7 +28,11 @@ The draft of the article is available on arXiv:
 │   ├── sparse_penalties.py
 │   ├── studentGL.py
 │   └── visualization.py
-|
+├── tex/
+│   ├── gnss_results.tex
+│   ├── VIEW.GNSS_map.eps
+│   └── VIEW.GNSS_map-eps-converted-to.pdf
+│
 │── ROC_curves.py
 │── benchmark_animal.py
 │── benchmark_gps.py
@@ -41,7 +44,7 @@ The draft of the article is available on arXiv:
 └── README.md
 ```
 
-Most of the development is done as functions and classes available in the **./src/** directory. Simulations presented in the paper can be reproduced using the scripts **ROC_curves.py, benchmark_animal.py, benchmark_gps.py, benchmark_concepts.py**. Data is stored in the **./data/** directory.
+Most of the development is done as functions and classes available in the **./src/** directory. Simulations presented in the paper can be reproduced using the scripts **ROC_curves.py, benchmark_animal.py, benchmark_gps.py, gnss_results.tex, benchmark_concepts.py**. Data is stored in the **./data/** directory.
 
 ## Pre-requesites
 
@@ -82,7 +85,7 @@ The following correspondance table shows the files used to produce figures prese
 | ```graphical_model.py```    | (1) in Suppl. material      |
 |  ```ROC_curves.py ```         | (2)--(7) in Suppl. material |
 |  ```benchmark_animal.py ```   | (1) in main paper           |
-|  ```benchmark_gps.py ```      | (2) in main paper           |
+|  ```benchmark_gps.py ``` and ```/tex/gnss_results.tex```      | (2) in main paper           |
 |  ```benchmark_concepts.py ``` | (8), (9** in Suppl. material |
 ## How to use the scripts
 
@@ -115,34 +118,77 @@ ROC curve in pdf format.
 #### Usage
 
 ```python ROC_curves.py --method <method> --graph <graph> --roc <roc_type> --lambda_val <lambda_value>  
---rank <rank> -n <number_of_samples> --multi <bool> --save <bool>
-```
+--rank <rank> -n <number_of_samples> --multi <bool> --save <bool>```
 
 #### Examples
 ```python ROC_curves --method EGM --graph ER -n 200 --roc rank```  
 ```python ROC_curves --method EGM --graph ER --roc lambda```  
 ```python ROC_curves --method all --graph ER -n 200 --roc compare```
 
-### ```benchmark_animal.py```; ```benchmark_gps.py```; ```benchmark_concepts.py```
+### ```benchmark_animal.py```
 
 #### Description
 
-Estimate and visualize estimated graphs for three data sets:
-
-* Comparison of the proposed approaches to state-of-the art methods on the animal data set;
-* Comparison of the proposed approaches to state-of-the art methods on the GPS data set;
-* Comparison of the proposed approaches to state-of-the art methods on the concepts data set. **Note: authors are not authorized to make the concepts data set public. This data set can be shared on demand.**
+Performs a comparison of the proposed approach to state-of-the art methods on the **animal** data set. Graphs matrices (precision) are estimated and displayed using the ```pyvis``` library.
 
 #### Parameters
-There are no parameters for these scripts.
+None.
 
 #### Output
-Estimated graphs in networkx format.
+Estimated graphs in ```html``` format. These graphs will automatically open in a browser (note that it has only been tested with Firefox and Chrome browsers). If the graph does not display, please refresh the page or try with another browser.
 
 #### Usage
 
-```python benchmark_animal.py```  
+```python benchmark_animal.py```
+
+### ```benchmark_gps.py```
+
+#### Description
+
+Performs a comparison of the proposed approach to state-of-the art methods on the **GNSS** data set. Graphs matrices (precision) are estimated and displayed using the ```pyvis``` library.
+
+#### Parameters
+None.
+
+#### Output
+
+* Estimated graphs in ```html``` format. These graphs will automatically open in a browser (tested with Firefox and Chrome browsers). If the graph does not display, please refresh the page or try with another browser.
+* Graph edges in ```dat``` format.
+
+#### Usage
 ```python benchmark_gps.py```
+
+### ```gnss_results.tex```
+
+#### Description
+
+Display estimated graphs of the **GNSS** data set on the Piton de la Fournaise map (copyright WEBOBS/IPGP). Takes the ```dat``` files produced by ```benchmark_gps.py``` as inputs.
+
+#### Parameters
+None.
+
+#### Output
+
+A 5-pages ```pdf``` file containing the graphs estimated with StudentGL, GGM, EGM, GGFM, EGFM (in this order).
+
+#### Usage
+```pdflatex gnss_results.tex```
+
+### ```benchmark_concepts.py```
+
+#### Description
+
+Performs a comparison of the proposed approach to state-of-the art methods on the **concepts** data set. Graphs matrices (precision) are estimated and displayed using the ```pyvis``` library.  
+**Note: authors are not authorized to make the concepts data set public. This data set can be shared on demand.**
+
+#### Parameters
+None.
+
+#### Output
+Will throw an error because the **concepts** data is not loaded (see **Description**).
+
+#### Usage
+```python concepts.py```
 
 
 ## Authors
