@@ -16,7 +16,7 @@ from StructuredGraphLearning.utils import Operators
 from StructuredGraphLearning.optimizer import Optimizer
 
 from .utils import disable_tqdm
-from networkx import from_numpy_matrix
+from networkx import DiGraph
 import time
 from copy import deepcopy
 
@@ -338,7 +338,7 @@ class NGL(BaseEstimator, TransformerMixin):
 
         # get adjacency matrix and graph
         adjacency = self.operator.A(w)
-        graph = from_numpy_matrix(adjacency)
+        graph = DiGraph(adjacency)
 
         return {'laplacian': Lw, 'precision': adjacency,
                 'graph': graph, 'maxiter': i}

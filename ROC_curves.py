@@ -22,12 +22,12 @@ from graphical_models import Graphical_models
 
 argParser = argparse.ArgumentParser()  #
 argParser.add_argument("--graph", type=str, default='BA', help="graph structure to be considered. Possible values are: BA, ER, WS, RG (default: BA)")
-argParser.add_argument("--method", type=str, default='GGM', help="method to use. Possible values are: GGM, EGM, GGFM, EGFM, all")
+argParser.add_argument("--method", type=str, default='GGM', help=". Possible values are: GGM, EGM, GGFM, EGFM, all")
 argParser.add_argument("--roc", type=str, default='lambda', help="type of ROC curve to be computed. Possible values are: lambda, rank, compare (default: lambda)")
-argParser.add_argument("--lambda_val", type=int, default=0.05, help="regularization parameter (default: 0.05)")
+argParser.add_argument("--lambda_val", type=float, default=0.05, help="regularization parameter (default: 0.05)")
 argParser.add_argument("--rank", type=int, default=20, help="rank of the factor model (default: 20)")
 argParser.add_argument("-n", "--samples", type=int, default=105, help="number of samples (default: 105 (~2*p))")
-argParser.add_argument("--multi", type=bool, default=True, help="wheter to use of multi-threading or not (default: True)")
+argParser.add_argument("--multi", type=bool, default=True, help="wheter to use multi-threading or not (default: True)")
 argParser.add_argument("--save", type=bool, default=False, help="save plot in pdf format (default: False)")
 args = argParser.parse_args()
 

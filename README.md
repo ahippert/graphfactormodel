@@ -17,7 +17,6 @@ The draft of the article is available on arXiv:
 │   └── environment.yml
 ├── data/
 │   ├── gps_up.npy
-|   ├── gps_up_2014_2022.npy
 │   └── animal.mat
 ├── src/
 │   ├── utils.py
@@ -29,18 +28,23 @@ The draft of the article is available on arXiv:
 │   ├── sparse_penalties.py
 │   ├── studentGL.py
 │   └── visualization.py
-├── simulations/
-│   ├── ROC_curves.py
-│   ├── benchmark_animal.py
-│   ├── benchmark_models.py
-│   ├── benchmark_concepts.py
-│   └── graphical_models.py
+├── tex/
+│   ├── gnss_results.tex
+│   ├── VIEW.GNSS_map.eps
+│   └── VIEW.GNSS_map-eps-converted-to.pdf
+│
+│── ROC_curves.py
+│── benchmark_animal.py
+│── benchmark_gps.py
+│── benchmark_concepts.py
+│── graphical_models.py
+|
 ├── install.sh
 ├── LICENCE
 └── README.md
 ```
 
-Most of the development is done as functions and classes available in the **./src/** directory. Simulations presented in the paper are available in the **./simulations/** directory. Data is sotred in the **./data/** directory.
+Most of the development is done as functions and classes available in the **./src/** directory. Simulations presented in the paper can be reproduced using the scripts **ROC_curves.py, benchmark_animal.py, benchmark_gps.py, gnss_results.tex, benchmark_concepts.py**. Data is stored in the **./data/** directory.
 
 ## Pre-requesites
 
@@ -53,35 +57,139 @@ It is then necessary to have either miniconda or Anaconda available:
 1. Installing conda environment
 
     To install the environment, a bash script **install.sh** is given in the root of this directory. Simply run:
+ 
     ```
-    sh install.sh
+    ./install.sh
     ```
 
 2. Activating conda environment and running a simulation
 
     To activate environment, run:
+
     ```
     conda activate graphfactormodels
     ```
-
     Then running a simulation is easily done using python. For example, run:
+
     ```
     python simulations/graphical_models.py
     ```
-    to generate and visualize the considered graph structures.
+    to generate and visualize the considered synthetic graph structures in the paper.
 
 ## Simulations and paper results match
 
-The following correspondance table shows the files (all situated in folder **simulations/**) used to produce the figures presented in the paper:
-| File                            | Produces Figure             |
-|---------------------------------|-----------------------------|
-| simulations/graphical_models.py | (1) in Suppl. material      |
-| simulations/ROC_curves.py       | (2)--(7) in Suppl. material |
-| simulations/benchmark_animal.py | (1) in main paper           |
-| simulations/benchmark_gps.py    | (2) in main paper           |
-| simulations/benchmark_concepts  | (8), (9** in Suppl. material |
+The following correspondance table shows the files used to produce figures presented in the paper:
 
-**Please see the documentation to know how to use the above scripts.**
+| File                  | Produces figure             |
+|:----------------------|:----------------------------|
+| ```graphical_model.py```    | (1) in Suppl. material      |
+|  ```ROC_curves.py ```         | (2)--(7) in Suppl. material |
+|  ```benchmark_animal.py ```   | (1) in main paper           |
+|  ```benchmark_gps.py ``` and ```/tex/gnss_results.tex```      | (2) in main paper           |
+|  ```benchmark_concepts.py ``` | (8), (9** in Suppl. material |
+## How to use the scripts
+
+### ```ROC_curves.py```
+
+#### Description
+
+Compute and visualize receiver operating caracteristics (ROC) curves. Three ROC curves are computed to perform the following:
+
+* Sensitivity of the proposed approaches to the regularization parameter;
+* Sensitivity of the proposed approaches to the rank of the factor model;
+* Comparison of the proposed approaches to state-of-the art methods.
+
+#### Parameters
+
+| Parameter                  | Type             | Possible values | Description |
+|:----------------------|:----------------------------|:---------------------------|:--------------------|
+| method    |   ```str```    | 'GGM', 'EGM', 'GGFM', 'EGFM', 'all' (default: 'GGM') | Method(s) to use. 'all' performs a comparison of SOTA methods, which can only be used with roc='compare'. Other values are to used with roc='lambda' or 'roc=rank'.|
+| graph         | ```str``` | 'BA', 'ER', 'WS', 'RG' (default: 'BA') | Graph structure to be considered. |
+| roc   | ```str```           | 'lambda', 'rank', 'compare' (default: 'lambda')| Type of ROC curve to be computed. 'compare' can only be used with a value of method='all'. 'lambda' and 'rank' modes are to be used with method='GGM', 'EGM', 'GGFM' or 'EGFM'.|
+| lambda_val      | ```float```           | Real positive value (default: 0.05) | Regularization parameter. |
+| rank | ```int``` | Positive integer (default: 20) | Rank of the factor model. |
+| n | ```int``` | Positive integer (default: 105) | Number of samples. |
+| multi | ```bool``` | ```True``` or ```False``` (default: ```True```) | Whether to use multi-threading or not. |
+| save | ```bool``` | ```True``` or ```False``` (default: ```False```) | Save plot in pdf format in a **/results** folder. |
+
+#### Output
+ROC curve in pdf format.
+
+#### Usage
+
+```python ROC_curves.py --method <method> --graph <graph> --roc <roc_type> --lambda_val <lambda_value>  
+--rank <rank> -n <number_of_samples> --multi <bool> --save <bool>```
+
+#### Examples
+```python ROC_curves --method EGM --graph ER -n 200 --roc rank```  
+```python ROC_curves --method EGM --graph ER --roc lambda```  
+```python ROC_curves --method all --graph ER -n 200 --roc compare```
+
+### ```benchmark_animal.py```
+
+#### Description
+
+Performs a comparison of the proposed approach to state-of-the art methods on the **animal** data set. Graphs matrices (precision) are estimated and displayed using the ```pyvis``` library.
+
+#### Parameters
+None.
+
+#### Output
+Estimated graphs in ```html``` format. These graphs will automatically open in a browser (note that it has only been tested with Firefox and Chrome browsers). If the graph does not display, please refresh the page or try with another browser.
+
+#### Usage
+
+```python benchmark_animal.py```
+
+### ```benchmark_gps.py```
+
+#### Description
+
+Performs a comparison of the proposed approach to state-of-the art methods on the **GNSS** data set. Graphs matrices (precision) are estimated and displayed using the ```pyvis``` library.
+
+#### Parameters
+None.
+
+#### Output
+
+* Estimated graphs in ```html``` format. These graphs will automatically open in a browser (tested with Firefox and Chrome browsers). If the graph does not display, please refresh the page or try with another browser.
+* Graph edges in ```dat``` format.
+
+#### Usage
+```python benchmark_gps.py```
+
+### ```gnss_results.tex```
+
+#### Description
+
+Display estimated graphs of the **GNSS** data set on the Piton de la Fournaise map (copyright WEBOBS/IPGP). Takes the ```dat``` files produced by ```benchmark_gps.py``` as inputs.
+
+#### Parameters
+None.
+
+#### Output
+
+A 5-pages ```pdf``` file containing the graphs estimated with StudentGL, GGM, EGM, GGFM, EGFM (in this order).
+
+#### Usage
+```pdflatex gnss_results.tex```
+
+### ```benchmark_concepts.py```
+
+#### Description
+
+Performs a comparison of the proposed approach to state-of-the art methods on the **concepts** data set. Graphs matrices (precision) are estimated and displayed using the ```pyvis``` library.  
+**Note: authors are not authorized to make the concepts data set public. This data set can be shared on demand.**
+
+#### Parameters
+None.
+
+#### Output
+Will throw an error because the **concepts** data is not loaded (see **Description**).
+
+#### Usage
+```python concepts.py```
+
 
 ## Authors
 
