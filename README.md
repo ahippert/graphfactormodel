@@ -125,6 +125,7 @@ ROC curve in pdf format.
 ```python ROC_curves --method EGM --graph ER --roc lambda```  
 ```python ROC_curves --method all --graph ER -n 200 --roc compare```
 
+
 ### ```benchmark_animal.py```
 
 #### Description
@@ -140,6 +141,7 @@ Estimated graphs in ```html``` format. These graphs will automatically open in a
 #### Usage
 
 ```python benchmark_animal.py```
+
 
 ### ```benchmark_gps.py```
 
@@ -158,6 +160,7 @@ None.
 #### Usage
 ```python benchmark_gps.py```
 
+
 ### ```gnss_results.tex```
 
 #### Description
@@ -173,6 +176,7 @@ A 5-pages ```pdf``` file containing the graphs estimated with StudentGL, GGM, EG
 
 #### Usage
 ```pdflatex gnss_results.tex```
+
 
 ### ```benchmark_concepts.py```
 
