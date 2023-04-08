@@ -32,13 +32,11 @@ The draft of the article is available on arXiv:
 │   ├── gnss_results.tex
 │   ├── VIEW.GNSS_map.eps
 │   └── VIEW.GNSS_map-eps-converted-to.pdf
-│
-│── ROC_curves.py
-│── benchmark_animal.py
-│── benchmark_gps.py
-│── benchmark_concepts.py
-│── graphical_models.py
-|
+├── ROC_curves.py
+├── benchmark_animal.py
+├── benchmark_gps.py
+├── benchmark_concepts.py
+├── graphical_models.py
 ├── install.sh
 ├── LICENCE
 └── README.md
@@ -78,7 +76,7 @@ It is then necessary to have either miniconda or Anaconda available:
 
 ## Simulations and paper results match
 
-The following correspondance table shows the files used to produce figures presented in the paper:
+The following correspondance table shows the files used to produce all figures presented in the paper:  
 
 | File                  | Produces figure             |
 |:----------------------|:----------------------------|
@@ -86,10 +84,10 @@ The following correspondance table shows the files used to produce figures prese
 |  ```ROC_curves.py ```         | (2)--(7) in Suppl. material |
 |  ```benchmark_animal.py ```   | (1) in main paper           |
 |  ```benchmark_gps.py ``` and ```/tex/gnss_results.tex```      | (2) in main paper           |
-|  ```benchmark_concepts.py ``` | (8), (9** in Suppl. material |
+|  ```benchmark_concepts.py ``` | (8), (9) in Suppl. material |
 ## How to use the scripts
 
-### ```ROC_curves.py```
+### `ROC_curves.py`
 
 #### Description
 
@@ -113,26 +111,29 @@ Compute and visualize receiver operating caracteristics (ROC) curves. Three ROC 
 | save | ```bool``` | ```True``` or ```False``` (default: ```False```) | Save plot in pdf format in a **/results** folder. |
 
 #### Output
-ROC curve in pdf format.
+
+ROC curve in ``pdf`` format.
 
 #### Usage
 
-```python ROC_curves.py --method <method> --graph <graph> --roc <roc_type> --lambda_val <lambda_value>  
---rank <rank> -n <number_of_samples> --multi <bool> --save <bool>```
+    python ROC_curves.py --method <method> --graph <graph> --roc <roc_type> --lambda_val <lambda_value>  
+    --rank <rank> -n <number_of_samples> --multi <bool> --save <bool>
 
 #### Examples
-```python ROC_curves --method EGM --graph ER -n 200 --roc rank```  
-```python ROC_curves --method EGM --graph ER --roc lambda```  
-```python ROC_curves --method all --graph ER -n 200 --roc compare```
+
+    python ROC_curves --method EGM --graph ER -n 200 --roc rank  
+    python ROC_curves --method EGM --graph ER --roc lambda  
+    python ROC_curves --method all --graph ER -n 200 --roc compare
 
 
-### ```benchmark_animal.py```
+### `benchmark_animal.py`
 
 #### Description
 
 Performs a comparison of the proposed approach to state-of-the art methods on the **animal** data set. Graphs matrices (precision) are estimated and displayed using the ```pyvis``` library.
 
 #### Parameters
+
 None.
 
 #### Output
@@ -140,16 +141,17 @@ Estimated graphs in ```html``` format. These graphs will automatically open in a
 
 #### Usage
 
-```python benchmark_animal.py```
+    python benchmark_animal.py
 
 
-### ```benchmark_gps.py```
+### `benchmark_gps.py`
 
 #### Description
 
 Performs a comparison of the proposed approach to state-of-the art methods on the **GNSS** data set. Graphs matrices (precision) are estimated and displayed using the ```pyvis``` library.
 
 #### Parameters
+
 None.
 
 #### Output
@@ -158,27 +160,30 @@ None.
 * Graph edges in ```dat``` format.
 
 #### Usage
-```python benchmark_gps.py```
+
+    python benchmark_gps.py
 
 
-### ```gnss_results.tex```
+### `gnss_results.tex`
 
 #### Description
 
 Display estimated graphs of the **GNSS** data set on the Piton de la Fournaise map (copyright WEBOBS/IPGP). Takes the ```dat``` files produced by ```benchmark_gps.py``` as inputs.
 
 #### Parameters
+
 None.
 
 #### Output
 
-A 5-pages ```pdf``` file containing the graphs estimated with StudentGL, GGM, EGM, GGFM, EGFM (in this order).
+A 5-pages ```pdf``` file containing the graphs estimated with StudentGL, GGM, EGM, GGFM, EGFM (in this exact order).
 
 #### Usage
-```pdflatex gnss_results.tex```
+
+    pdflatex gnss_results.tex
 
 
-### ```benchmark_concepts.py```
+### `benchmark_concepts.py`
 
 #### Description
 
@@ -186,13 +191,16 @@ Performs a comparison of the proposed approach to state-of-the art methods on th
 **Note: authors are not authorized to make the concepts data set public. This data set can be shared on demand.**
 
 #### Parameters
+
 None.
 
 #### Output
+
 Will throw an error because the **concepts** data is not loaded (see **Description**).
 
 #### Usage
-```python concepts.py```
+
+    python concepts.py
 
 
 ## Authors
