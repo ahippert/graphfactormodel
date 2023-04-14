@@ -1,10 +1,7 @@
 import numpy as np
-from numpy import linalg as la
-from numpy import random as rnd
-from numpy import testing as np_testing
+from numpy import linalg as la, random as rnd, testing as np_testing
 
 from pymanopt.manifolds import Euclidean
-
 from .._test import TestCase
 
 
@@ -18,9 +15,8 @@ class TestEuclideanManifold(TestCase):
         assert self.man.dim == self.m * self.n
 
     def test_typicaldist(self):
-        np_testing.assert_almost_equal(
-            self.man.typicaldist, np.sqrt(self.m * self.n)
-        )
+        np_testing.assert_almost_equal(self.man.typicaldist, np.sqrt(self.m *
+                                                                     self.n))
 
     def test_dist(self):
         e = self.man
@@ -45,7 +41,8 @@ class TestEuclideanManifold(TestCase):
         x = e.rand()
         u = e.randvec(x)
         egrad, ehess = rnd.randn(2, self.m, self.n)
-        np_testing.assert_allclose(e.ehess2rhess(x, egrad, ehess, u), ehess)
+        np_testing.assert_allclose(e.ehess2rhess(x, egrad, ehess, u),
+                                   ehess)
 
     def test_retr(self):
         e = self.man
@@ -63,7 +60,7 @@ class TestEuclideanManifold(TestCase):
         e = self.man
         x = e.rand()
         u = rnd.randn(self.m, self.n)
-        np_testing.assert_almost_equal(np.sqrt(np.sum(u ** 2)), e.norm(x, u))
+        np_testing.assert_almost_equal(np.sqrt(np.sum(u**2)), e.norm(x, u))
 
     def test_rand(self):
         e = self.man

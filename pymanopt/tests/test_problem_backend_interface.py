@@ -3,7 +3,6 @@ import numpy.testing as np_testing
 
 import pymanopt
 from pymanopt.manifolds import Euclidean, FixedRankEmbedded, Product
-
 from ._test import TestCase
 
 
@@ -14,9 +13,8 @@ class TestProblemBackendInterface(TestCase):
         self.rank = rank = 3
 
         A = np.random.randn(m, n)
-        self.manifold = Product([FixedRankEmbedded(m, n, rank), Euclidean(n)])
 
-        @pymanopt.function.Autograd(self.manifold)
+        @pymanopt.function.Autograd
         def cost(u, s, vt, x):
             return np.linalg.norm(((u * s) @ vt - A) @ x) ** 2
 
@@ -24,6 +22,7 @@ class TestProblemBackendInterface(TestCase):
         self.gradient = self.cost.compute_gradient()
         self.hvp = self.cost.compute_hessian_vector_product()
 
+        self.manifold = Product([FixedRankEmbedded(m, n, rank), Euclidean(n)])
         self.problem = pymanopt.Problem(self.manifold, self.cost)
 
     def test_cost_function(self):
@@ -72,7 +71,6 @@ class TestProblemBackendInterface(TestCase):
         (a, b, c), d = U
 
         (hu, hs, hvt), hx = H
-        for ha, hb in zip(
-            (hu, hs, hvt, hx), self.hvp(u, s, vt, x, a, b, c, d)
-        ):
+        for ha, hb in zip((hu, hs, hvt, hx),
+                          self.hvp(u, s, vt, x, a, b, c, d)):
             np_testing.assert_allclose(ha, hb)

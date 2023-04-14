@@ -6,15 +6,30 @@ from pymanopt.tools.multi import multiprod, multitransp
 
 
 class Grassmann(Manifold):
-    """The Grassmannian.
-
-    This is the manifold of p-dimensional subspaces of n dimensional real
-    vector space.
-    The optional argument k allows the user to optimize over the product of k
-    Grassmannians.
-    Elements are represented as n x p matrices (if k == 1), and as k x n x p
-    matrices if k > 1.
     """
+    Factory class for the Grassmann manifold. This is the manifold of p-
+    dimensional subspaces of n dimensional real vector space. Initiation
+    requires the dimensions n, p to be specified. Optional argument k
+    allows the user to optimize over the product of k Grassmanns.
+
+    Elements are represented as n x p matrices (if k == 1), and as k x n x p
+    matrices if k > 1 (Note that this is different to manopt!).
+    """
+
+    #   I have chaned the retraction to one using the polar decomp as am now
+    #   implementing vector transport. See comment below (JT)
+
+    #   April 17, 2013 (NB) :
+    #       Retraction changed to the polar decomposition, so that the vector
+    #       transport is now correct, in the sense that it is compatible with
+    #       the retraction, i.e., transporting a tangent vector G from U to V
+    #       where V = Retr(U, H) will give Z, and transporting GQ from UQ to VQ
+    #       will give ZQ: there is no dependence on the representation, which
+    #       is as it should be. Notice that the polar factorization requires an
+    #       SVD whereas the qfactor retraction requires a QR decomposition,
+    #       which is cheaper. Hence, if the retraction happens to be a
+    #       bottleneck in your application and you are not using vector
+    #       transports, you may want to replace the retraction with a qfactor.
 
     def __init__(self, n, p, k=1):
         self._n = n
@@ -22,16 +37,16 @@ class Grassmann(Manifold):
         self._k = k
 
         if n < p or p < 1:
-            raise ValueError(
-                f"Need n >= p >= 1. Values supplied were n = {n} and p = {p}"
-            )
+            raise ValueError("Need n >= p >= 1. Values supplied were n = %d "
+                             "and p = %d." % (n, p))
         if k < 1:
-            raise ValueError(f"Need k >= 1. Value supplied was k = {k}")
+            raise ValueError("Need k >= 1. Value supplied was k = %d." % k)
 
         if k == 1:
-            name = f"Grassmann manifold Gr({n},{p})"
+            name = "Grassmann manifold Gr({:d}, {:d})".format(n, p)
         elif k >= 2:
-            name = f"Product Grassmann manifold Gr({n},{p})^{k}"
+            name = "Product Grassmann manifold Gr({:d}, {:d})^{:d}".format(
+                n, p, k)
         dimension = int(k * (n * p - p ** 2))
         super().__init__(name, dimension)
 
@@ -64,6 +79,9 @@ class Grassmann(Manifold):
         return PXehess - HXtG
 
     def retr(self, X, G):
+        # Calculate 'thin' qr decomposition of X + G
+        # XNew, r = np.linalg.qr(X + G)
+
         # We do not need to worry about flipping signs of columns here,
         # since only the column space is important, not the actual
         # columns. Compare this with the Stiefel manifold.
@@ -103,9 +121,8 @@ class Grassmann(Manifold):
         cos_s = np.expand_dims(np.cos(s), -2)
         sin_s = np.expand_dims(np.sin(s), -2)
 
-        Y = multiprod(multiprod(X, multitransp(vt) * cos_s), vt) + multiprod(
-            u * sin_s, vt
-        )
+        Y = (multiprod(multiprod(X, multitransp(vt) * cos_s), vt) +
+             multiprod(u * sin_s, vt))
 
         # From numerical experiments, it seems necessary to
         # re-orthonormalize. This is overall quite expensive.

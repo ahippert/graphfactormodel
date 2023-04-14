@@ -1,8 +1,0 @@
-black[jupyter]
-flake8
-flake8-docstrings
-flake8-import-order
-isort
-matplotlib
-nose2
-pre-commit

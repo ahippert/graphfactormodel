@@ -14,9 +14,8 @@ class Product(Manifold):
             if isinstance(manifold, Product):
                 raise ValueError("Nested product manifolds are not supported")
         self._manifolds = tuple(manifolds)
-        manifold_names = " x ".join([str(man) for man in manifolds])
-        name = f"Product manifold: {manifold_names}"
-
+        name = ("Product manifold: {:s}".format(
+                " x ".join([str(man) for man in manifolds])))
         dimension = np.sum([man.dim for man in manifolds])
         point_layout = tuple(manifold.point_layout for manifold in manifolds)
         super().__init__(name, dimension, point_layout=point_layout)
@@ -29,51 +28,33 @@ class Product(Manifold):
 
     @property
     def typicaldist(self):
-        return np.sqrt(
-            np.sum([man.typicaldist ** 2 for man in self._manifolds])
-        )
+        return np.sqrt(np.sum([man.typicaldist ** 2
+                               for man in self._manifolds]))
 
     def inner(self, X, G, H):
-        return np.sum(
-            [
-                man.inner(X[k], G[k], H[k])
-                for k, man in enumerate(self._manifolds)
-            ]
-        )
+        return np.sum([man.inner(X[k], G[k], H[k])
+                       for k, man in enumerate(self._manifolds)])
 
     def norm(self, X, G):
         return np.sqrt(self.inner(X, G, G))
 
     def dist(self, X, Y):
-        return np.sqrt(
-            np.sum(
-                [
-                    man.dist(X[k], Y[k]) ** 2
-                    for k, man in enumerate(self._manifolds)
-                ]
-            )
-        )
+        return np.sqrt(np.sum([man.dist(X[k], Y[k]) ** 2
+                               for k, man in enumerate(self._manifolds)]))
 
     def proj(self, X, U):
         return _ProductTangentVector(
-            [man.proj(X[k], U[k]) for k, man in enumerate(self._manifolds)]
-        )
+            [man.proj(X[k], U[k]) for k, man in enumerate(self._manifolds)])
 
     def egrad2rgrad(self, X, U):
         return _ProductTangentVector(
-            [
-                man.egrad2rgrad(X[k], U[k])
-                for k, man in enumerate(self._manifolds)
-            ]
-        )
+            [man.egrad2rgrad(X[k], U[k])
+             for k, man in enumerate(self._manifolds)])
 
     def ehess2rhess(self, X, egrad, ehess, H):
         return _ProductTangentVector(
-            [
-                man.ehess2rhess(X[k], egrad[k], ehess[k], H[k])
-                for k, man in enumerate(self._manifolds)
-            ]
-        )
+            [man.ehess2rhess(X[k], egrad[k], ehess[k], H[k])
+             for k, man in enumerate(self._manifolds)])
 
     def exp(self, X, U):
         return [man.exp(X[k], U[k]) for k, man in enumerate(self._manifolds)]
@@ -83,38 +64,29 @@ class Product(Manifold):
 
     def log(self, X, U):
         return _ProductTangentVector(
-            [man.log(X[k], U[k]) for k, man in enumerate(self._manifolds)]
-        )
+            [man.log(X[k], U[k]) for k, man in enumerate(self._manifolds)])
 
     def rand(self):
         return [man.rand() for man in self._manifolds]
 
     def randvec(self, X):
-        scale = len(self._manifolds) ** (-1 / 2)
+        scale = len(self._manifolds) ** (-1/2)
         return _ProductTangentVector(
-            [
-                scale * man.randvec(X[k])
-                for k, man in enumerate(self._manifolds)
-            ]
-        )
+            [scale * man.randvec(X[k])
+             for k, man in enumerate(self._manifolds)])
 
     def transp(self, X1, X2, G):
         return _ProductTangentVector(
-            [
-                man.transp(X1[k], X2[k], G[k])
-                for k, man in enumerate(self._manifolds)
-            ]
-        )
+            [man.transp(X1[k], X2[k], G[k])
+             for k, man in enumerate(self._manifolds)])
 
     def pairmean(self, X, Y):
-        return [
-            man.pairmean(X[k], Y[k]) for k, man in enumerate(self._manifolds)
-        ]
+        return [man.pairmean(X[k], Y[k])
+                for k, man in enumerate(self._manifolds)]
 
     def zerovec(self, X):
         return _ProductTangentVector(
-            [man.zerovec(X[k]) for k, man in enumerate(self._manifolds)]
-        )
+            [man.zerovec(X[k]) for k, man in enumerate(self._manifolds)])
 
 
 class _ProductTangentVector(list, ndarraySequenceMixin):
@@ -124,14 +96,12 @@ class _ProductTangentVector(list, ndarraySequenceMixin):
     def __add__(self, other):
         assert len(self) == len(other)
         return _ProductTangentVector(
-            [v + other[k] for k, v in enumerate(self)]
-        )
+            [v + other[k] for k, v in enumerate(self)])
 
     def __sub__(self, other):
         assert len(self) == len(other)
         return _ProductTangentVector(
-            [v - other[k] for k, v in enumerate(self)]
-        )
+            [v - other[k] for k, v in enumerate(self)])
 
     def __mul__(self, other):
         return _ProductTangentVector([other * val for val in self])

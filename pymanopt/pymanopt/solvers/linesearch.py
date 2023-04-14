@@ -1,14 +1,11 @@
 class LineSearchBackTracking:
-    """Back-tracking line-search algorithm."""
+    """
+    Back-tracking line-search based on linesearch.m in the manopt MATLAB
+    package.
+    """
 
-    def __init__(
-        self,
-        contraction_factor=0.5,
-        optimism=2,
-        suff_decr=1e-4,
-        maxiter=25,
-        initial_stepsize=1,
-    ):
+    def __init__(self, contraction_factor=.5, optimism=2,
+                 suff_decr=1e-4, maxiter=25, initial_stepsize=1):
         self.contraction_factor = contraction_factor
         self.optimism = optimism
         self.suff_decr = suff_decr
@@ -18,19 +15,24 @@ class LineSearchBackTracking:
         self._oldf0 = None
 
     def search(self, objective, manifold, x, d, f0, df0):
-        """Function to perform backtracking line search.
-
-        Args:
-            objective: Objective function to optimize.
-            manifold: The manifold to optimize over.
-            x: Starting point on the manifold.
-            d: Tangent vector at ``x``, i.e., a descent direction.
-            df0: Directional derivative at ``x`` along ``d``.
-
+        """
+        Function to perform backtracking line-search.
+        Arguments:
+            - objective
+                objective function to optimise
+            - manifold
+                manifold to optimise over
+            - x
+                starting point on the manifold
+            - d
+                tangent vector at x (descent direction)
+            - df0
+                directional derivative at x along d
         Returns:
-            A tuple ``(stepsize, newx)`` where ``stepsize`` is the norm of the
-            vector retracted to reach the suggested iterate ``newx`` from
-            ``x``.
+            - stepsize
+                norm of the vector retracted to reach newx from x
+            - newx
+                next iterate suggested by the line-search
         """
         # Compute the norm of the search direction
         norm_d = manifold.norm(x, d)
@@ -50,10 +52,8 @@ class LineSearchBackTracking:
         step_count = 1
 
         # Backtrack while the Armijo criterion is not satisfied
-        while (
-            newf > f0 + self.suff_decr * alpha * df0
-            and step_count <= self.maxiter
-        ):
+        while (newf > f0 + self.suff_decr * alpha * df0 and
+               step_count <= self.maxiter):
 
             # Reduce the step size
             alpha = self.contraction_factor * alpha
@@ -77,15 +77,12 @@ class LineSearchBackTracking:
 
 
 class LineSearchAdaptive:
-    """Adaptive line-search."""
+    '''
+    Adaptive line-search
+    '''
 
-    def __init__(
-        self,
-        contraction_factor=0.5,
-        suff_decr=0.5,
-        maxiter=10,
-        initial_stepsize=1,
-    ):
+    def __init__(self, contraction_factor=.5, suff_decr=.5, maxiter=10,
+                 initial_stepsize=1):
         self._contraction_factor = contraction_factor
         self._suff_decr = suff_decr
         self._maxiter = maxiter
@@ -105,10 +102,8 @@ class LineSearchAdaptive:
         newf = objective(newx)
         cost_evaluations = 1
 
-        while (
-            newf > f0 + self._suff_decr * alpha * df0
-            and cost_evaluations <= self._maxiter
-        ):
+        while (newf > f0 + self._suff_decr * alpha * df0 and
+               cost_evaluations <= self._maxiter):
             # Reduce the step size.
             alpha *= self._contraction_factor
 

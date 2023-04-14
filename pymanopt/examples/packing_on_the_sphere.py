@@ -1,20 +1,27 @@
+import os
+
 import autograd.numpy as np
 import tensorflow as tf
+import theano.tensor as T
 import torch
+from examples._tools import ExampleRunner
 
 import pymanopt
-from examples._tools import ExampleRunner
 from pymanopt.manifolds import Elliptope
 from pymanopt.solvers import ConjugateGradient
 
 
-SUPPORTED_BACKENDS = ("Autograd", "PyTorch", "TensorFlow")
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
-def create_cost(manifold, epsilon, backend):
+SUPPORTED_BACKENDS = (
+    "Autograd", "PyTorch", "TensorFlow", "Theano"
+)
+
+
+def create_cost(backend, dimension, num_points, epsilon):
     if backend == "Autograd":
-
-        @pymanopt.function.Autograd(manifold)
+        @pymanopt.function.Autograd
         def cost(X):
             Y = X @ X.T
             # Shift the exponentials by the maximum value to reduce numerical
@@ -25,10 +32,8 @@ def create_cost(manifold, epsilon, backend):
             expY -= np.diag(np.diag(expY))
             u = np.triu(expY, 1).sum()
             return s + epsilon * np.log(u)
-
     elif backend == "PyTorch":
-
-        @pymanopt.function.PyTorch(manifold)
+        @pymanopt.function.PyTorch
         def cost(X):
             Y = torch.matmul(X, torch.transpose(X, 1, 0))
             s = torch.triu(Y, 1).max()
@@ -36,10 +41,11 @@ def create_cost(manifold, epsilon, backend):
             expY = expY - torch.diag(torch.diag(expY))
             u = torch.triu(expY, 1).sum()
             return s + epsilon * torch.log(u)
-
     elif backend == "TensorFlow":
+        X = tf.Variable(tf.zeros((num_points, dimension), dtype=np.float64),
+                        name="X")
 
-        @pymanopt.function.TensorFlow(manifold)
+        @pymanopt.function.TensorFlow(X)
         def cost(X):
             Y = tf.matmul(X, tf.transpose(X))
             s = tf.reduce_max(tf.linalg.band_part(Y, 0, -1))
@@ -47,9 +53,19 @@ def create_cost(manifold, epsilon, backend):
             expY = expY - tf.linalg.diag(tf.linalg.diag_part(expY))
             u = tf.reduce_sum(tf.linalg.band_part(Y, 0, -1))
             return s + epsilon * tf.math.log(u)
+    elif backend == "Theano":
+        X = T.matrix()
 
+        @pymanopt.function.Theano(X)
+        def cost(X):
+            Y = T.dot(X, X.T)
+            s = T.triu(Y, 1).max()
+            expY = T.exp((Y - s) / epsilon)
+            expY = expY - T.diag(T.diag(expY))
+            u = T.sum(T.triu(expY, 1))
+            return s + epsilon * T.log(u)
     else:
-        raise ValueError(f"Unsupported backend '{backend}'")
+        raise ValueError("Unsupported backend '{:s}'".format(backend))
 
     return cost
 
@@ -66,10 +82,10 @@ def run(backend=SUPPORTED_BACKENDS[0], quiet=True):
     # using a small epsilon straightaway is to reduce epsilon bit by bit and to
     # warm-start subsequent optimization in that way. Trustregions will be more
     # appropriate for these fine tunings.
-    epsilon = 0.005
+    epsilon = 0.0015
 
+    cost = create_cost(backend, dimension, num_points, epsilon)
     manifold = Elliptope(num_points, dimension)
-    cost = create_cost(manifold, epsilon, backend)
     problem = pymanopt.Problem(manifold, cost)
     if quiet:
         problem.verbosity = 0

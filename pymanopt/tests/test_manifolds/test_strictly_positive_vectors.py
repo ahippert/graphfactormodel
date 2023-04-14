@@ -1,11 +1,7 @@
 import autograd.numpy as np
-from numpy import linalg as la
-from numpy import random as rnd
-from numpy import testing as np_testing
+from numpy import linalg as la, random as rnd, testing as np_testing
 
 from pymanopt.manifolds import StrictlyPositiveVectors
-
-# from pymanopt.tools import testing
 from .._test import TestCase
 
 
@@ -33,10 +29,10 @@ class TestStrictlyPositiveVectors(TestCase):
     def test_norm(self):
         x = self.man.rand()
         u = self.man.randvec(x)
-        x_u = (1.0 / x) * u
+        x_u = (1./x) * u
         np_testing.assert_almost_equal(
-            la.norm(x_u, axis=0, keepdims=True), self.man.norm(x, u)
-        )
+            la.norm(x_u, axis=0, keepdims=True),
+            self.man.norm(x, u))
 
     def test_rand(self):
         # Just make sure that things generated are on the manifold
@@ -52,19 +48,33 @@ class TestStrictlyPositiveVectors(TestCase):
         x = self.man.rand()
         g = self.man.randvec(x)
         h = self.man.randvec(x)
-        assert (la.norm(g - h, axis=0) > 1e-6).all()
+        assert (la.norm(g-h, axis=0) > 1e-6).all()
         np_testing.assert_almost_equal(self.man.norm(x, g), 1)
+
+    def test_zerovec(self):
+        x = self.man.rand()
+        np_testing.assert_equal(
+            self.man.zerovec(x),
+            np.zeros((self.n, self.k))
+        )
 
     def test_dist(self):
         # To implement norm of log(x, y)
         x = self.man.rand()
         y = self.man.rand()
         u = self.man.log(x, y)
-        np_testing.assert_almost_equal(
-            self.man.norm(x, u), self.man.dist(x, y)
-        )
+        np_testing.assert_almost_equal(self.man.norm(x, u),
+                                       self.man.dist(x, y))
 
-    # def test_ehess2rhess(self):
+    def test_ehess2rhess(self):
+        x = self.man.rand()
+        u = self.man.randvec(x)
+        egrad = rnd.randn(self.n, self.k)
+        ehess = rnd.randn(self.n, self.k)
+        hess = self.man.ehess2rhess(x, egrad, ehess, u)
+        hess_proj = self.man.proj(x, hess)
+
+        np_testing.assert_allclose(hess, hess_proj)
 
     def test_exp_log_inverse(self):
         x = self.man.rand()
@@ -94,4 +104,11 @@ class TestStrictlyPositiveVectors(TestCase):
         xretru = self.man.retr(x, u)
         np_testing.assert_allclose(xretru, x + u)
 
-        # def test_transp(self):
+    def test_transp(self):
+        # check that vector remains in tangent space
+        m = self.man
+        x = m.rand()
+        y = m.rand()
+        u = m.randvec(x)
+        t_u = m.transp(x, y, u)
+        np_testing.assert_allclose(t_u, m.proj(y, t_u))
