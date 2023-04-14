@@ -1,42 +1,16 @@
 import unittest
 
 import numpy as np
-from numpy import random as rnd
-from numpy import testing as np_testing
-
-from pymanopt.manifolds.manifold import Manifold
-
-
-def manifold_factory(point_layout):
-    class CustomManifold(Manifold):
-        def __init__(self):
-            super().__init__(
-                name="Test manifold", dimension=3, point_layout=point_layout
-            )
-
-        def _generic(self, *args, **kwargs):
-            pass
-
-        inner = _generic
-        norm = _generic
-        proj = _generic
-        rand = _generic
-        randvec = _generic
-        zerovec = _generic
-
-    return CustomManifold()
+from numpy import random as rnd, testing as np_testing
 
 
 class TestUnaryFunction(unittest.TestCase):
-    """Test cost function, gradient and hvp for a unary cost function.
+    """Test cost function, gradient and Hessian for the function
 
-    This test uses a cost function of the form::
-
-        f = lambda x: np.sum(x ** 2)
+        f(x) = np.sum(x ** 2).
     """
 
     def setUp(self):
-        self.manifold = manifold_factory(point_layout=1)
         self.n = 10
         self.cost = None
 
@@ -64,19 +38,16 @@ class TestUnaryFunction(unittest.TestCase):
 
 
 class TestNaryFunction(unittest.TestCase):
-    """Test cost function, gradient and hvp for an nary cost function.
+    """Test cost function, gradient and Hessian for the cost function
 
-    This test uses a cost function of the form::
-
-        f = lambda x, y: x @ y
+        f(x, y) = x @ y
 
     This situation arises e.g. when optimizing over the
-    :class:`pymanopt.manifolds.FixedRankEmbedded` manifold where points on the
-    manifold are represented as a 3-tuple of a truncated SVD.
+    FixedRankEmbedded manifold where points on the manifold are represented as
+    a 3-tuple making up a truncated SVD.
     """
 
     def setUp(self):
-        self.manifold = manifold_factory(point_layout=2)
         self.n = 10
         self.cost = None
 
@@ -88,7 +59,7 @@ class TestNaryFunction(unittest.TestCase):
         x = rnd.randn(n)
         y = rnd.randn(n)
 
-        self.assertAlmostEqual(x @ y, cost(x, y))
+        self.assertAlmostEqual(np.dot(x, y), cost(x, y))
 
         egrad = cost.compute_gradient()
         g = egrad(x, y)
@@ -118,18 +89,15 @@ class TestNaryFunction(unittest.TestCase):
 
 
 class TestNaryParameterGrouping(unittest.TestCase):
-    """Test parameter grouping for cost function, gradient and hvp.
+    """Test cost function, gradient and Hessian for the cost function
 
-    This test assumes a cost function of the form::
+        f(x, y, z) = np.sum(x ** 2 * y + 3 * z)
 
-        f = lambda x, y, z: np.sum(x ** 2 * y + 3 * z)
-
-    This situation could arise e.g. on product manifolds where one of the
-    underlying manifolds represents points as a tuple of arrays.
+    would define on product manifolds where one of the underlying manifolds
+    represents points as a tuple of numpy.ndarrays.
     """
 
     def setUp(self):
-        self.manifold = manifold_factory(point_layout=3)
         self.n = 10
         self.cost = None
 
@@ -177,9 +145,7 @@ class TestNaryParameterGrouping(unittest.TestCase):
 
 class TestVector(unittest.TestCase):
     def setUp(self):
-        np.seterr(all="raise")
-
-        self.manifold = manifold_factory(point_layout=1)
+        np.seterr(all='raise')
 
         n = self.n = 15
 
@@ -198,10 +164,10 @@ class TestVector(unittest.TestCase):
 
         diag = np.eye(n)
 
-        H = np.exp(np.sum(Y ** 2)) * (4 * Ymat.T @ Ymat + 2 * diag)
+        H = np.exp(np.sum(Y ** 2)) * (4 * Ymat.T.dot(Ymat) + 2 * diag)
 
         # Then 'left multiply' H by A
-        self.correct_hess = np.squeeze(np.array(Amat @ H))
+        self.correct_hess = np.squeeze(np.array(Amat.dot(H)))
 
     def test_compile(self):
         np_testing.assert_allclose(self.correct_cost, self.cost(self.Y))
@@ -219,9 +185,7 @@ class TestVector(unittest.TestCase):
 
 class TestMatrix(unittest.TestCase):
     def setUp(self):
-        np.seterr(all="raise")
-
-        self.manifold = manifold_factory(point_layout=1)
+        np.seterr(all='raise')
 
         m = self.m = 10
         n = self.n = 15
@@ -265,9 +229,7 @@ class TestMatrix(unittest.TestCase):
 
 class TestTensor3(unittest.TestCase):
     def setUp(self):
-        np.seterr(all="raise")
-
-        self.manifold = manifold_factory(point_layout=1)
+        np.seterr(all='raise')
 
         n1 = self.n1 = 3
         n2 = self.n2 = 4
@@ -312,9 +274,7 @@ class TestTensor3(unittest.TestCase):
 class TestMixed(unittest.TestCase):
     # Test autograd on a tuple containing vector, matrix and tensor3.
     def setUp(self):
-        np.seterr(all="raise")
-
-        self.manifold = manifold_factory(point_layout=3)
+        np.seterr(all='raise')
 
         n1 = self.n1 = 3
         n2 = self.n2 = 4
@@ -326,11 +286,9 @@ class TestMixed(unittest.TestCase):
         self.y = y = (rnd.randn(n1), rnd.randn(n2, n3), rnd.randn(n4, n5, n6))
         self.a = a = (rnd.randn(n1), rnd.randn(n2, n3), rnd.randn(n4, n5, n6))
 
-        self.correct_cost = (
-            np.exp(np.sum(y[0] ** 2))
-            + np.exp(np.sum(y[1] ** 2))
-            + np.exp(np.sum(y[2] ** 2))
-        )
+        self.correct_cost = (np.exp(np.sum(y[0] ** 2)) +
+                             np.exp(np.sum(y[1] ** 2)) +
+                             np.exp(np.sum(y[2] ** 2)))
 
         # Calculate correct grad
         g1 = 2 * y[0] * np.exp(np.sum(y[0] ** 2))
@@ -346,10 +304,10 @@ class TestMixed(unittest.TestCase):
 
         diag = np.eye(n1)
 
-        H = np.exp(np.sum(y[0] ** 2)) * (4 * Ymat.T @ Ymat + 2 * diag)
+        H = np.exp(np.sum(y[0] ** 2)) * (4 * Ymat.T.dot(Ymat) + 2 * diag)
 
         # Then 'left multiply' H by A
-        h1 = np.array(Amat @ H).flatten()
+        h1 = np.array(Amat.dot(H)).flatten()
 
         # 2. MATRIX
         # First form hessian tensor H (4th order)

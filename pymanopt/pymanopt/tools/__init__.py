@@ -20,19 +20,15 @@ class ndarraySequenceMixin:
 
 
 def unpack_singleton_sequence_return_value(function):
-    """Decorator to unwrap singleton return values.
-
-    Function decorator which unwraps the return value of ``function`` if it
+    """Function decorator which unwraps the return value of ``function`` if it
     is a sequence containing only a single element.
     """
-
     @functools.wraps(function)
     def wrapper(*args):
         result = function(*args)
         if not isinstance(result, (list, tuple)) or len(result) != 1:
             raise ValueError("Function did not return a singleton sequence")
         return result[0]
-
     return wrapper
 
 
@@ -40,4 +36,4 @@ def bisect_sequence(sequence):
     num_items = len(sequence)
     if num_items % 2 == 1:
         raise ValueError("Sequence must have an even number of elements")
-    return sequence[: num_items // 2], sequence[num_items // 2 :]
+    return sequence[:num_items // 2], sequence[num_items // 2:]

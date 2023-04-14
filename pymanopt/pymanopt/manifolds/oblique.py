@@ -6,7 +6,8 @@ from pymanopt.manifolds.manifold import EuclideanEmbeddedSubmanifold
 
 
 class Oblique(EuclideanEmbeddedSubmanifold):
-    """Manifold of matrices w/ unit-norm columns.
+    """
+    Manifold of matrices w/ unit-norm columns.
 
     Oblique manifold: deals with matrices of size m-by-n such that each column
     has unit 2-norm, i.e., is a point on the unit sphere in R^m. The metric
@@ -18,7 +19,7 @@ class Oblique(EuclideanEmbeddedSubmanifold):
     def __init__(self, m, n):
         self._m = m
         self._n = n
-        name = f"Oblique manifold OB({m},{n})"
+        name = "Oblique manifold OB({:d}, {:d})".format(m, n)
         dimension = (m - 1) * n
         super().__init__(name, dimension)
 
@@ -26,18 +27,7 @@ class Oblique(EuclideanEmbeddedSubmanifold):
     def typicaldist(self):
         return np.pi * np.sqrt(self._n)
 
-    def inner(self, X: np.ndarray, U: np.ndarray, V: np.ndarray) -> np.float64:
-        """Inner product.
-
-        Args:
-            X: The base point.
-            U: The first tangent vector.
-            V: The second tangent vector.
-
-        Returns:
-            The inner product between ``U`` and ``V`` in the tangent space at
-            ``X``.
-        """
+    def inner(self, X, U, V):
         return float(np.tensordot(U, V))
 
     def norm(self, X, U):

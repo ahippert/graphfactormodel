@@ -1,12 +1,9 @@
 import autograd.numpy as np
-from numpy import linalg as la
-from numpy import random as rnd
-from numpy import testing as np_testing
+from numpy import linalg as la, random as rnd, testing as np_testing
 
 from pymanopt.manifolds import Grassmann
 from pymanopt.tools import testing
 from pymanopt.tools.multi import multieye, multiprod, multisym, multitransp
-
 from .._test import TestCase
 
 
@@ -17,14 +14,13 @@ class TestSingleGrassmannManifold(TestCase):
         self.k = k = 1
         self.man = Grassmann(m, n, k=k)
 
-        self.proj = lambda x, u: u - x @ x.T @ u
+        self.proj = lambda x, u: u - np.dot(x, np.dot(x.T, u))
 
     def test_dist(self):
         x = self.man.rand()
         y = self.man.rand()
-        np_testing.assert_almost_equal(
-            self.man.dist(x, y), self.man.norm(x, self.man.log(x, y))
-        )
+        np_testing.assert_almost_equal(self.man.dist(x, y),
+                                       self.man.norm(x, self.man.log(x, y)))
 
     def test_ehess2rhess(self):
         # Test this function at some randomly generated point.
@@ -33,10 +29,9 @@ class TestSingleGrassmannManifold(TestCase):
         egrad = rnd.randn(self.m, self.n)
         ehess = rnd.randn(self.m, self.n)
 
-        np_testing.assert_allclose(
-            testing.ehess2rhess(self.proj)(x, egrad, ehess, u),
-            self.man.ehess2rhess(x, egrad, ehess, u),
-        )
+        np_testing.assert_allclose(testing.ehess2rhess(self.proj)(x, egrad,
+                                                                  ehess, u),
+                                   self.man.ehess2rhess(x, egrad, ehess, u))
 
     def test_retr(self):
         # Test that the result is on the manifold and that for small
@@ -46,9 +41,9 @@ class TestSingleGrassmannManifold(TestCase):
 
         xretru = self.man.retr(x, u)
 
-        np_testing.assert_allclose(
-            multiprod(multitransp(xretru), xretru), np.eye(self.n), atol=1e-10
-        )
+        np_testing.assert_allclose(multiprod(multitransp(xretru), xretru),
+                                   np.eye(self.n),
+                                   atol=1e-10)
 
         u = u * 1e-6
         xretru = self.man.retr(x, u)
@@ -62,9 +57,8 @@ class TestSingleGrassmannManifold(TestCase):
         # Just make sure that things generated are on the manifold and that
         # if you generate two they are not equal.
         X = self.man.rand()
-        np_testing.assert_allclose(
-            multiprod(multitransp(X), X), np.eye(self.n), atol=1e-10
-        )
+        np_testing.assert_allclose(multiprod(multitransp(X), X),
+                                   np.eye(self.n), atol=1e-10)
         Y = self.man.rand()
         assert la.norm(X - Y) > 1e-6
 
@@ -91,11 +85,11 @@ class TestSingleGrassmannManifold(TestCase):
         np_testing.assert_almost_equal(0, self.man.norm(x, u - v))
 
     # def test_pairmean(self):
-    # s = self.man
-    # X = s.rand()
-    # Y = s.rand()
-    # Z = s.pairmean(X, Y)
-    # np_testing.assert_array_almost_equal(s.dist(X, Z), s.dist(Y, Z))
+        # s = self.man
+        # X = s.rand()
+        # Y = s.rand()
+        # Z = s.pairmean(X, Y)
+        # np_testing.assert_array_almost_equal(s.dist(X, Z), s.dist(Y, Z))
 
 
 class TestMultiGrassmannManifold(TestCase):
@@ -105,22 +99,20 @@ class TestMultiGrassmannManifold(TestCase):
         self.k = k = 3
         self.man = Grassmann(m, n, k=k)
 
-        self.proj = lambda x, u: u - x @ x.T @ u
+        self.proj = lambda x, u: u - np.dot(x, np.dot(x.T, u))
 
     def test_dim(self):
         assert self.man.dim == self.k * (self.m * self.n - self.n ** 2)
 
     def test_typicaldist(self):
-        np_testing.assert_almost_equal(
-            self.man.typicaldist, np.sqrt(self.n * self.k)
-        )
+        np_testing.assert_almost_equal(self.man.typicaldist,
+                                       np.sqrt(self.n * self.k))
 
     def test_dist(self):
         x = self.man.rand()
         y = self.man.rand()
-        np_testing.assert_almost_equal(
-            self.man.dist(x, y), self.man.norm(x, self.man.log(x, y))
-        )
+        np_testing.assert_almost_equal(self.man.dist(x, y),
+                                       self.man.norm(x, self.man.log(x, y)))
 
     def test_inner(self):
         X = self.man.rand()
@@ -147,11 +139,9 @@ class TestMultiGrassmannManifold(TestCase):
 
         xretru = self.man.retr(x, u)
 
-        np_testing.assert_allclose(
-            multiprod(multitransp(xretru), xretru),
-            multieye(self.k, self.n),
-            atol=1e-10,
-        )
+        np_testing.assert_allclose(multiprod(multitransp(xretru), xretru),
+                                   multieye(self.k, self.n),
+                                   atol=1e-10)
 
         u = u * 1e-6
         xretru = self.man.retr(x, u)
@@ -168,9 +158,8 @@ class TestMultiGrassmannManifold(TestCase):
         # Just make sure that things generated are on the manifold and that
         # if you generate two they are not equal.
         X = self.man.rand()
-        np_testing.assert_allclose(
-            multiprod(multitransp(X), X), multieye(self.k, self.n), atol=1e-10
-        )
+        np_testing.assert_allclose(multiprod(multitransp(X), X),
+                                   multieye(self.k, self.n), atol=1e-10)
         Y = self.man.rand()
         assert la.norm(X - Y) > 1e-6
 
@@ -179,11 +168,9 @@ class TestMultiGrassmannManifold(TestCase):
         # two then they are not equal.
         X = self.man.rand()
         U = self.man.randvec(X)
-        np_testing.assert_allclose(
-            multisym(multiprod(multitransp(X), U)),
-            np.zeros((self.k, self.n, self.n)),
-            atol=1e-10,
-        )
+        np_testing.assert_allclose(multisym(multiprod(multitransp(X), U)),
+                                   np.zeros((self.k, self.n, self.n)),
+                                   atol=1e-10)
         V = self.man.randvec(X)
         assert la.norm(U - V) > 1e-6
 
@@ -208,8 +195,8 @@ class TestMultiGrassmannManifold(TestCase):
         np_testing.assert_almost_equal(0, self.man.norm(x, u - v))
 
     # def test_pairmean(self):
-    # s = self.man
-    # X = s.rand()
-    # Y = s.rand()
-    # Z = s.pairmean(X, Y)
-    # np_testing.assert_array_almost_equal(s.dist(X, Z), s.dist(Y, Z))
+        # s = self.man
+        # X = s.rand()
+        # Y = s.rand()
+        # Z = s.pairmean(X, Y)
+        # np_testing.assert_array_almost_equal(s.dist(X, Z), s.dist(Y, Z))

@@ -2,31 +2,31 @@
 
 [Fork and clone the repository][fork]:
 
-    $ git clone git@github.com:your-username/pymanopt.git
+    git clone git@github.com:your-username/pymanopt.git
 
 Set up a local development environment, installing both the runtime and
-development dependencies listed in the `requirements/dev.txt` and
-`requirements/base.txt` files. We provide a simple bootstrapping script in
+development dependencies listed in the `dev-requirements.txt` and
+`requirements.txt` files. We provide a simple bootstrapping script in
 `tools/bootstrap-pyenv-virtualenv.sh` to set up a local development
 environment. The script requires `pyenv` and `pyenv-virtualenv` to be installed
 and configured.
 
 Verify that all existing tests pass by either running
 
-    $ python setup.py test
+    python setup.py test
 
-or executing the test suite via [nose2][nose2]:
+or executing the test suite via [nose][nose]:
 
-    $ nose2 tests
+    nosetests
 
 Note that we run the [flake8][flake8] utility on every python file in the
 package to verify coding style consistency during our integration tests. As
 such, failure to comply to the [style guide][style] will result in a failing
-ci build. To prevent adding commits which fail to adhere to the PEP8
+travis-ci build. To prevent adding commits which fail to adhere to the PEP8
 guidelines, we include a [pre-commit][pre-commit] config, which immediately
 invokes flake8 on all files staged for commit when running `git commit`. To
 enable the hook, simply run `pre-commit install` after installing `pre-commit`
-either manually via `pip` or as part of `requirements/dev.txt`.
+either manually via `pip` or as part of `dev-requirements.txt`.
 
 Push a feature branch to your fork and [submit a pull request][pr]. Refer to
 [this guide][commits] on how to write good commit messages.
@@ -59,9 +59,9 @@ using your real name and email address. Running the git-commit command
 with the -s option automatically adds this line.
 
 [fork]: https://help.github.com/articles/cloning-a-repository/
-[nose2]: https://docs.nose2.io/en/latest/
+[nose]: https://nose.readthedocs.org/en/latest/
 [flake8]: http://flake8.pycqa.org/en/latest/
 [pre-commit]: https://pre-commit.com/
 [style]: https://www.python.org/dev/peps/pep-0008/
-[pr]: https://github.com/pymanopt/pymanopt/compare
+[pr]: https://github.com/j-towns/pymanopt/compare
 [commits]: http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html

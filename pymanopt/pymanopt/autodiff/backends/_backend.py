@@ -3,10 +3,13 @@ import functools
 
 
 class Backend(metaclass=abc.ABCMeta):
-    """Abstract base class defining the interface for autodiff backends.
+    """Abstract base class defining the interface autodiff backends must
+    implement.
 
-    Args:
-        name: The name of the backend.
+    Parameters
+    ----------
+    name : str
+        The name of the backend.
     """
 
     def __init__(self, name):
@@ -16,72 +19,116 @@ class Backend(metaclass=abc.ABCMeta):
         return self._name
 
     def _assert_backend_available(method):
-        """Decorator verifying the availability of a backend.
+        """Decorator which verifies the availability of a backend before
+        evaluating the decorated function, raising a RuntimeError exception if
+        the backend isn't available.
 
-        Args:
-            method: The method of a class to decorate.
+        Parameters
+        ----------
+        method : callable
+            The method of a class to decorate.
 
-        Returns:
-            callable: The wrapped method.
-
-        Raises:
-            RuntimeError: If the backend isn't available.
+        Returns
+        -------
+        callable
+            The wrapped method.
         """
-
         @functools.wraps(method)
         def wrapper(self, *args, **kwargs):
             if not self.is_available():
-                raise RuntimeError(f"Backend '{self}' is not available")
+                raise RuntimeError(
+                    "Backend '{}' is not available".format(self))
             return method(self, *args, **kwargs)
-
         return wrapper
 
     @abc.abstractstaticmethod
     def is_available():
         """Checks whether the backend is available or not.
 
-        Returns:
+        Returns
+        -------
+        bool
             True if backend is available, False otherwise.
         """
 
     @abc.abstractmethod
-    def compile_function(self, function):
-        """Compiles a function into a Python callable.
+    def is_compatible(self, function, arguments):
+        """Checks whether `function` and `arguments` are compatible with the
+        backend.
 
-        Args:
-            function: A callable.
+        Parameters
+        ----------
+        function
+            Python callable or a backend-specific computational graph node.
+        arguments
+            A backend-dependent representation of the arguments `function`
+            expects.
 
-        Returns:
-            A Python callable accepting and a ``numpy.ndarray`` and returning a
-            scalar.
+        Returns
+        -------
+        bool
+            True if the backend is compatible with `function` and `arguments`,
+            False otherwise.
         """
 
     @abc.abstractmethod
-    def compute_gradient(self, function, num_arguments):
-        """Creates a function to compute gradients of a function.
+    def compile_function(self, function, arguments):
+        """Compiles a function into a Python callable.
 
-        Args:
-            function: A callable.
-            num_arguments: The number of arguments that ``function`` expects.
+        Parameters
+        ----------
+        function
+            Python callable or a backend-specific computational graph node.
+        arguments
+            A backend-dependent representation of the arguments `function`
+            expects.
 
-        Returns:
+        Returns
+        -------
+        compiled_function : callable
+            A Python callable accepting arguments according to the signature
+            defined by `arguments`.
+        """
+
+    @abc.abstractmethod
+    def compute_gradient(self, function, arguments):
+        """Computes the gradient of a function and turns it into a Python
+        callable.
+
+        Parameters
+        ----------
+        function
+            Python callable or a backend-specific computational graph node.
+        arguments
+            A backend-dependent representation of the arguments `function`
+            expects.
+
+        Returns
+        -------
+        gradient : callable
             A Python callable of the gradient of `function` accepting arguments
             according to the signature defined by `arguments`.
         """
 
     @abc.abstractmethod
-    def compute_hessian_vector_product(self, function, num_arguments):
-        """Creates a function to compute Hessian-vector products of a function.
+    def compute_hessian_vector_product(self, function, arguments):
+        """Computes the Hessian-vector product of function a function and turns
+        it into a Python callable.
 
-        Args:
-            function: A callable.
-            num_arguments: The number of arguments that ``function`` expects.
+        Parameters
+        ----------
+        function
+            Python callable or a backend-specific computational graph node.
+        arguments
+            A backend-dependent representation of the arguments `function`
+            expects.
 
-        Returns:
+        Returns
+        -------
+        hessian_vector_product : callable
             A Python callable evaluating the Hessian-vector product of
-            ``function`` accepting arguments according to the signature defined
-            by ``arguments``.
-            The returned callable accepts a point of evaluation as a sequence
-            of length ``num_arguments``, as well as a vector of the same shape
-            that is right-multiplied to the Hessian.
+            `function` accepting arguments according to the signature defined
+            by `arguments`. The returned callable accepts a point of evaluation
+            according to `arguments`, as well as a vector that is
+            right-multiplied to the Hessian.
         """

@@ -1,50 +1,59 @@
+import os
+
 import autograd.numpy as np
 import tensorflow as tf
+import theano.tensor as T
 import torch
+from examples._tools import ExampleRunner
 
 import pymanopt
-from examples._tools import ExampleRunner
 from pymanopt.manifolds import SpecialOrthogonalGroup
 from pymanopt.solvers import SteepestDescent
 
 
-SUPPORTED_BACKENDS = ("Autograd", "Callable", "PyTorch", "TensorFlow")
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
-def create_cost_egrad(manifold, ABt, backend):
+SUPPORTED_BACKENDS = (
+    "Autograd", "Callable", "PyTorch", "TensorFlow", "Theano"
+)
+
+
+def create_cost_egrad(backend, ABt):
     egrad = None
 
     if backend == "Autograd":
-
-        @pymanopt.function.Autograd(manifold)
+        @pymanopt.function.Autograd
         def cost(X):
             return -np.tensordot(X, ABt, axes=X.ndim)
-
     elif backend == "Callable":
-
-        @pymanopt.function.Callable(manifold)
+        @pymanopt.function.Callable
         def cost(X):
             return -np.tensordot(X, ABt, axes=X.ndim)
 
-        @pymanopt.function.Callable(manifold)
+        @pymanopt.function.Callable
         def egrad(X):
             return -ABt
-
     elif backend == "PyTorch":
         ABt_ = torch.from_numpy(ABt)
 
-        @pymanopt.function.PyTorch(manifold)
+        @pymanopt.function.PyTorch
         def cost(X):
             return -torch.tensordot(X, ABt_, dims=X.dim())
-
     elif backend == "TensorFlow":
+        X = tf.Variable(tf.zeros(ABt.shape, dtype=np.float64), name="X")
 
-        @pymanopt.function.TensorFlow(manifold)
+        @pymanopt.function.TensorFlow(X)
         def cost(X):
             return -tf.tensordot(X, ABt, axes=ABt.ndim)
+    elif backend == "Theano":
+        X = T.tensor3()
 
+        @pymanopt.function.Theano(X)
+        def cost(X):
+            return -T.tensordot(X, ABt, axes=ABt.ndim)
     else:
-        raise ValueError(f"Unsupported backend '{backend}'")
+        raise ValueError("Unsupported backend '{:s}'".format(backend))
 
     return cost, egrad
 
@@ -69,8 +78,8 @@ def run(backend=SUPPORTED_BACKENDS[0], quiet=True):
     B = np.random.randn(k, n, m)
     ABt = np.array([Ak @ Bk.T for Ak, Bk in zip(A, B)])
 
+    cost, egrad = create_cost_egrad(backend, ABt)
     manifold = SpecialOrthogonalGroup(n, k)
-    cost, egrad = create_cost_egrad(manifold, ABt, backend)
     problem = pymanopt.Problem(manifold, cost, egrad=egrad)
     if quiet:
         problem.verbosity = 0
@@ -84,7 +93,6 @@ def run(backend=SUPPORTED_BACKENDS[0], quiet=True):
 
 
 if __name__ == "__main__":
-    runner = ExampleRunner(
-        run, "Optimal rotations example", SUPPORTED_BACKENDS
-    )
+    runner = ExampleRunner(run, "Optimal rotations example",
+                           SUPPORTED_BACKENDS)
     runner.run()

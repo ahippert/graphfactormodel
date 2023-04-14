@@ -6,12 +6,15 @@ from pymanopt.manifolds.manifold import EuclideanEmbeddedSubmanifold
 
 
 class ComplexCircle(EuclideanEmbeddedSubmanifold):
-    """Manifold of unit-modulus complex numbers.
+    """
+    The manifold of complex numbers with unit-modulus.
 
     Description of vectors z in C^n (complex) such that each component z(i)
     has unit modulus. The manifold structure is the Riemannian submanifold
     structure from the embedding space R^2 x ... x R^2, i.e., the complex
-    circle is identified with the unit circle in the real plane.
+    circle is identified with the unit circle in the real plane. This
+    implementation is based on complexcirclefactory.m from the Manopt MATLAB
+    package.
     """
 
     def __init__(self, dimension=1):
@@ -19,11 +22,11 @@ class ComplexCircle(EuclideanEmbeddedSubmanifold):
         if dimension == 1:
             name = "Complex circle S^1"
         else:
-            name = f"Product manifold of complex circles (S^1)^{dimension}"
+            name = "Complex circle (S^1)^{:d}".format(dimension)
         super().__init__(name, dimension)
 
     def inner(self, z, v, w):
-        return (v.conj() @ w).real
+        return v.conj().dot(w).real
 
     def norm(self, x, v):
         return la.norm(v)
@@ -48,9 +51,8 @@ class ComplexCircle(EuclideanEmbeddedSubmanifold):
         abs_v = np.abs(v)
         mask = abs_v > 0
         not_mask = np.logical_not(mask)
-        y[mask] = z[mask] * np.cos(abs_v[mask]) + v[mask] * (
-            np.sin(abs_v[mask]) / abs_v[mask]
-        )
+        y[mask] = (z[mask] * np.cos(abs_v[mask]) +
+                   v[mask] * (np.sin(abs_v[mask]) / abs_v[mask]))
         y[not_mask] = z[not_mask]
         return y
 
@@ -68,8 +70,7 @@ class ComplexCircle(EuclideanEmbeddedSubmanifold):
     def rand(self):
         dimension = self._dimension
         return self._normalize(
-            rnd.randn(dimension) + 1j * rnd.randn(dimension)
-        )
+            rnd.randn(dimension) + 1j * rnd.randn(dimension))
 
     def randvec(self, z):
         v = rnd.randn(self._dimension) * (1j * z)

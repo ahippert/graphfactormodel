@@ -1,8 +1,9 @@
-"""Module containing manifolds of n-dimensional rotations."""
+"""
+Module containing manifolds of n-dimensional rotations
+"""
 
 import numpy as np
-from numpy import linalg as la
-from numpy import random as rnd
+from numpy import linalg as la, random as rnd
 from scipy.linalg import expm, logm
 from scipy.special import comb
 
@@ -11,7 +12,11 @@ from pymanopt.tools.multi import multiprod, multiskew, multisym, multitransp
 
 
 class SpecialOrthogonalGroup(EuclideanEmbeddedSubmanifold):
-    """The special orthogonal group.
+    """
+    Returns a manifold structure to optimize over rotation matrices.
+
+    manifold = Rotations(n)
+    manifold = Rotations(n, k)
 
     Special orthogonal group (the manifold of rotations): deals with matrices
     X of size k x n x n (or n x n if k = 1, which is the default) such that
@@ -32,6 +37,40 @@ class SpecialOrthogonalGroup(EuclideanEmbeddedSubmanifold):
     exponential. To force the use of a second-order approximation, call
     manifold.retr = manifold.retr2 after creating M. This switches from a
     QR-based computation to an SVD-based computation.
+
+    By default, k = 1.
+
+    Example. Based on the example found at:
+    http://www.manopt.org/manifold_documentation_rotations.html
+
+    >>> import numpy as np
+    >>> from pymanopt import Problem
+    >>> from pymanopt.solvers import TrustRegions
+    >>> from pymanopt.manifolds import Rotations
+
+    Generate the problem data.
+    >>> n = 3
+    >>> m = 10
+    >>> A = np.random.randn(n, m)
+    >>> B = np.random.randn(n, m)
+    >>> ABt = np.dot(A,B.T)
+
+    Create manifold - SO(n).
+    >>> manifold = Rotations(n)
+
+    Define the cost function.
+    >>> cost = lambda X : -np.tensordot(X, ABt, axes=X.ndim)
+
+    Define and solve the problem.
+    >>> problem = Problem(manifold=manifold, cost=cost)
+    >>> solver = TrustRegions()
+    >>> X = solver.solve(problem)
+
+    See also: Stiefel
+
+    This file is based on rotationsfactory from Manopt: www.manopt.org
+    Ported by: Lars Tingelstad
+    Original author: Nicolas Boumal, Dec. 30, 2012.
     """
 
     def __init__(self, n, k=1):
@@ -39,9 +78,9 @@ class SpecialOrthogonalGroup(EuclideanEmbeddedSubmanifold):
         self._k = k
 
         if k == 1:
-            name = f"Special orthogonal group SO({n})"
+            name = "Rotations manifold SO({n})".format(n=n)
         elif k > 1:
-            name = f"Sphecial orthogonal group SO({n})^{k}"
+            name = "Rotations manifold SO({n})^{k}".format(n=n, k=k)
         else:
             raise ValueError("k must be an integer no less than 1.")
         dimension = int(k * comb(n, 2))
@@ -76,7 +115,7 @@ class SpecialOrthogonalGroup(EuclideanEmbeddedSubmanifold):
     def retr(self, X, U):
         def retri(Y):
             Q, R = la.qr(Y)
-            return Q @ np.diag(np.sign(np.sign(np.diag(R)) + 0.5))
+            return np.dot(Q, np.diag(np.sign(np.sign(np.diag(R)) + 0.5)))
 
         Y = X + multiprod(X, U)
         if self._k == 1:
@@ -89,7 +128,7 @@ class SpecialOrthogonalGroup(EuclideanEmbeddedSubmanifold):
     def retr2(self, X, U):
         def retr2i(Y):
             U, _, Vt = la.svd(Y)
-            return U @ Vt
+            return np.dot(U, Vt)
 
         Y = X + multiprod(X, U)
         if self._k == 1:
@@ -127,8 +166,7 @@ class SpecialOrthogonalGroup(EuclideanEmbeddedSubmanifold):
             # group of orthogonal n-by-n matrices.
             A = rnd.randn(n, n)
             Q, RR = la.qr(A)
-            # TODO(nkoep): Add a proper reference to Mezzadri 2007.
-            Q = Q @ np.diag(np.sign(np.diag(RR)))
+            Q = np.dot(Q, np.diag(np.sign(np.diag(RR))))  # Mezzadri 2007
 
             # If Q is in O(n) but not in SO(n), we permute the two first
             # columns of Q such that det(new Q) = -det(Q), hence the new Q will

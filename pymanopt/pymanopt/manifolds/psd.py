@@ -1,35 +1,48 @@
-import numpy as np
-from numpy import linalg as la
-from numpy import random as rnd
-from scipy.linalg import expm
-from scipy.linalg import solve_continuous_lyapunov as lyap
+import warnings
 
-from pymanopt.manifolds.manifold import (
-    EuclideanEmbeddedSubmanifold,
-    Manifold,
-    RetrAsExpMixin,
-)
+import numpy as np
+from numpy import linalg as la, random as rnd
+from scipy.linalg import expm
+# Workaround for SciPy bug: https://github.com/scipy/scipy/pull/8082
+try:
+    from scipy.linalg import solve_continuous_lyapunov as lyap
+except ImportError:
+    from scipy.linalg import solve_lyapunov as lyap
+
+from pymanopt.manifolds.manifold import EuclideanEmbeddedSubmanifold, Manifold
 from pymanopt.tools.multi import multilog, multiprod, multisym, multitransp
 
 
-class SymmetricPositiveDefinite(EuclideanEmbeddedSubmanifold):
-    """Manifold of symmetric positive definite matrices.
-
-    Notes:
-        The geometry is based on the discussion in chapter 6 of [Bha2007]_.
-        Also see [SH2015]_ for more details.
+class _RetrAsExpMixin:
+    """Mixin class which defers calls to the exponential map to the retraction
+    and issues a warning.
     """
 
+    def exp(self, Y, U):
+        warnings.warn(
+            "Exponential map for manifold '{:s}' not implemented yet. Using "
+            "retraction instead.".format(self._get_class_name()),
+            RuntimeWarning)
+        return self.retr(Y, U)
+
+
+class SymmetricPositiveDefinite(EuclideanEmbeddedSubmanifold):
+    """Manifold of (n x n)^k symmetric positive definite matrices, based on the
+    geometry discussed in Chapter 6 of Positive Definite Matrices (Bhatia
+    2007). Some of the implementation is based on sympositivedefinitefactory.m
+    from the Manopt MATLAB package. Also see "Conic geometric optimisation on
+    the manifold of positive definite matrices" (Sra & Hosseini 2013) for more
+    details.
+    """
     def __init__(self, n, k=1):
         self._n = n
         self._k = k
 
         if k == 1:
-            name = f"Manifold of positive definite {n}x{n} matrices"
+            name = ("Manifold of positive definite ({} x {}) matrices").format(
+                n, n)
         else:
-            name = (
-                f"Product manifold of {k} positive definite {n}x{n} matrices"
-            )
+            name = "Product manifold of {} ({} x {}) matrices".format(k, n, n)
         dimension = int(k * n * (n + 1) / 2)
         super().__init__(name, dimension)
 
@@ -43,18 +56,12 @@ class SymmetricPositiveDefinite(EuclideanEmbeddedSubmanifold):
         # may be more efficient ways to compute this.
         c = la.cholesky(x)
         c_inv = la.inv(c)
-        logm = multilog(
-            multiprod(multiprod(c_inv, y), multitransp(c_inv)), pos_def=True
-        )
+        logm = multilog(multiprod(multiprod(c_inv, y), multitransp(c_inv)),
+                        pos_def=True)
         return la.norm(logm)
 
     def inner(self, x, u, v):
-        xinvu = la.solve(x, u)
-        if u is v:
-            xinvv = xinvu
-        else:
-            xinvv = la.solve(x, v)
-        return np.tensordot(xinvu, multitransp(xinvv), axes=x.ndim)
+        return np.tensordot(la.solve(x, u), la.solve(x, v), axes=x.ndim)
 
     def proj(self, X, G):
         return multisym(G)
@@ -65,12 +72,16 @@ class SymmetricPositiveDefinite(EuclideanEmbeddedSubmanifold):
 
     def ehess2rhess(self, x, egrad, ehess, u):
         # TODO: Check that this is correct
-        return multiprod(multiprod(x, multisym(ehess)), x) + multisym(
-            multiprod(multiprod(u, multisym(egrad)), x)
-        )
+        return (multiprod(multiprod(x, multisym(ehess)), x) +
+                multisym(multiprod(multiprod(u, multisym(egrad)), x)))
 
     def norm(self, x, u):
-        return np.sqrt(self.inner(x, u, u))
+        # This implementation is as fast as np.linalg.solve_triangular and is
+        # more stable, as the above solver tends to output non positive
+        # definite results.
+        c = la.cholesky(x)
+        c_inv = la.inv(c)
+        return la.norm(multiprod(multiprod(c_inv, u), multitransp(c_inv)))
 
     def rand(self):
         # The way this is done is arbitrary. I think the space of p.d.
@@ -127,25 +138,23 @@ class SymmetricPositiveDefinite(EuclideanEmbeddedSubmanifold):
     def log(self, x, y):
         c = la.cholesky(x)
         c_inv = la.inv(c)
-        logm = multilog(
-            multiprod(multiprod(c_inv, y), multitransp(c_inv)), pos_def=True
-        )
+        logm = multilog(multiprod(multiprod(c_inv, y), multitransp(c_inv)),
+                        pos_def=True)
         return multiprod(multiprod(c, logm), multitransp(c))
 
     def zerovec(self, x):
         k = self._k
         n = self._n
         if k == 1:
-            return np.zeros((n, n))
-        return np.zeros((k, n, n))
+            return np.zeros((k, n, n))
+        return np.zeros((n, n))
 
 
 # TODO(nkoep): This could either stay in here (seeing how it's a manifold of
 #              psd matrices, or in fixed_rank. Alternatively, move this one and
 #              the next class to a dedicated 'psd_fixed_rank' module.
 
-
-class _PSDFixedRank(Manifold, RetrAsExpMixin):
+class _PSDFixedRank(Manifold, _RetrAsExpMixin):
     def __init__(self, n, k, name, dimension):
         self._n = n
         self._k = k
@@ -164,10 +173,10 @@ class _PSDFixedRank(Manifold, RetrAsExpMixin):
 
     def proj(self, Y, H):
         # Projection onto the horizontal space
-        YtY = Y.T @ Y
-        AS = Y.T @ H - H.T @ Y
+        YtY = Y.T.dot(Y)
+        AS = Y.T.dot(H) - H.T.dot(Y)
         Omega = lyap(YtY, AS)
-        return H - Y @ Omega
+        return H - Y.dot(Omega)
 
     def egrad2rgrad(self, Y, egrad):
         return egrad
@@ -197,7 +206,8 @@ class _PSDFixedRank(Manifold, RetrAsExpMixin):
 
 
 class PSDFixedRank(_PSDFixedRank):
-    """Manifold of fixed-rank positive semidefinite (PSD) matrices.
+    """
+    Manifold of n-by-n symmetric positive semidefinite matrices of rank k.
 
     A point X on the manifold is parameterized as YY^T where Y is a matrix of
     size nxk. As such, X is symmetric, positive semidefinite. We restrict to
@@ -229,13 +239,15 @@ class PSDFixedRank(_PSDFixedRank):
     """
 
     def __init__(self, n, k):
-        name = f"Quotient manifold of {n}x{n} psd matrices of rank {k}"
+        name = ("YY' quotient manifold of {:d}x{:d} psd matrices of "
+                "rank {:d}".format(n, n, k))
         dimension = int(k * n - k * (k - 1) / 2)
         super().__init__(n, k, name, dimension)
 
 
 class PSDFixedRankComplex(_PSDFixedRank):
-    """Manifold of fixed-rank Hermitian positive semidefinite (PSD) matrices.
+    """
+    Manifold of n x n complex Hermitian pos. semidefinite matrices of rank k.
 
     Manifold of n-by-n complex Hermitian positive semidefinite matrices of
     fixed rank k. This follows the quotient geometry described
@@ -260,7 +272,8 @@ class PSDFixedRankComplex(_PSDFixedRank):
     """
 
     def __init__(self, n, k):
-        name = f"Quotient manifold of Hermitian {n}x{n} matrices of rank {k}"
+        name = ("YY' quotient manifold of Hermitian {:d}x{:d} complex "
+                "matrices of rank {:d}".format(n, n, k))
         dimension = 2 * k * n - k * k
         super().__init__(n, k, name, dimension)
 
@@ -271,8 +284,8 @@ class PSDFixedRankComplex(_PSDFixedRank):
         return np.sqrt(self.inner(Y, U, U))
 
     def dist(self, U, V):
-        S, _, D = la.svd(V.T.conj() @ U)
-        E = U - V @ S @ D
+        S, _, D = la.svd(V.T.conj().dot(U))
+        E = U - V.dot(S).dot(D)
         return self.inner(None, E, E) / 2
 
     def rand(self):
@@ -280,8 +293,9 @@ class PSDFixedRankComplex(_PSDFixedRank):
         return rand_() + 1j * rand_()
 
 
-class Elliptope(Manifold, RetrAsExpMixin):
-    """Manifold of fixed-rank PSD matrices with unit diagonal elements.
+class Elliptope(Manifold, _RetrAsExpMixin):
+    """
+    Manifold of n-by-n psd matrices of rank k with unit diagonal elements.
 
     A point X on the manifold is parameterized as YY^T where Y is a matrix of
     size nxk. As such, X is symmetric, positive semidefinite. We restrict to
@@ -314,10 +328,8 @@ class Elliptope(Manifold, RetrAsExpMixin):
         self._n = n
         self._k = k
 
-        name = (
-            f"Quotient manifold of {n}x{n} psd matrices of rank {k} "
-            "with unit diagonal elements"
-        )
+        name = ("YY' quotient manifold of {:d}x{:d} psd matrices of rank {:d} "
+                "with diagonal elements being 1".format(n, n, k))
         dimension = int(n * (k - 1) - k * (k - 1) / 2)
         super().__init__(name, dimension)
 
@@ -337,10 +349,10 @@ class Elliptope(Manifold, RetrAsExpMixin):
         eta = self._project_rows(Y, H)
 
         # Projection onto the horizontal space
-        YtY = Y.T @ Y
-        AS = Y.T @ eta - H.T @ Y
+        YtY = Y.T.dot(Y)
+        AS = Y.T.dot(eta) - H.T.dot(Y)
         Omega = lyap(YtY, -AS)
-        return eta - Y @ (Omega - Omega.T) / 2
+        return eta - Y.dot((Omega - Omega.T) / 2)
 
     def retr(self, Y, U):
         return self._normalize_rows(Y + U)

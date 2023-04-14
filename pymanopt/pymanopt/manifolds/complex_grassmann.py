@@ -5,14 +5,14 @@ from pymanopt.tools.multi import multihconj, multiprod
 
 
 class ComplexGrassmann(Manifold):
-    """The complex Grassmannian.
+    """
+    Factory class for the Grassmann manifold. This is the manifold of p-
+    dimensional subspaces of n dimensional complex vector space. Initiation
+    requires the dimensions n, p to be specified. Optional argument k
+    allows the user to optimize over the product of k Grassmanns.
 
-    This is the manifold of p-dimensional subspaces of n dimensional complex
-    vector space.
-    The optional argument k allows the user to optimize over the product of k
-    Grassmannians.
     Elements are represented as n x p matrices (if k == 1), and as k x n x p
-    matrices if k > 1.
+    matrices if k > 1 (Note that this is different to manopt!).
     """
 
     def __init__(self, n, p, k=1):
@@ -21,16 +21,16 @@ class ComplexGrassmann(Manifold):
         self._k = k
 
         if n < p or p < 1:
-            raise ValueError(
-                f"Need n >= p >= 1. Values supplied were n = {n} and p = {p}"
-            )
+            raise ValueError("Need n >= p >= 1. Values supplied were n = %d "
+                             "and p = %d." % (n, p))
         if k < 1:
-            raise ValueError(f"Need k >= 1. Value supplied was k = {k}")
+            raise ValueError("Need k >= 1. Value supplied was k = %d." % k)
 
         if k == 1:
-            name = f"Complex Grassmann manifold Gr({n},{p})"
+            name = "Complex Grassmann manifold Gr({:d}, {:d})".format(n, p)
         elif k >= 2:
-            name = f"Product complex Grassmann manifold Gr({n},{p})^{k}"
+            name = ("Product complex Grassmann manifold Gr({:d}, {:d})^{:d}"
+                    .format(n, p, k))
         dimension = int(2 * k * (n * p - p ** 2))
         super().__init__(name, dimension)
 
@@ -49,26 +49,18 @@ class ComplexGrassmann(Manifold):
 
     def rand(self):
         if self._k == 1:
-            q, _ = np.linalg.qr(
-                (
-                    np.random.randn(self._n, self._p)
-                    + 1j * np.random.randn(self._n, self._p)
-                )
-            )
+            q, _ = np.linalg.qr((np.random.randn(self._n, self._p)
+                                 + 1j*np.random.randn(self._n, self._p)))
             return q
 
         X = np.zeros((self._k, self._n, self._p), np.complex_)
         for i in range(self._k):
-            X[i], _ = np.linalg.qr(
-                (
-                    np.random.randn(self._n, self._p)
-                    + 1j * np.random.randn(self._n, self._p)
-                )
-            )
+            X[i], _ = np.linalg.qr((np.random.randn(self._n, self._p)
+                                    + 1j*np.random.randn(self._n, self._p)))
         return X
 
     def randvec(self, X):
-        U = np.random.randn(*np.shape(X)) + 1j * np.random.randn(*np.shape(X))
+        U = np.random.randn(*np.shape(X)) + 1j*np.random.randn(*np.shape(X))
         U = self.proj(X, U)
         U = U / np.linalg.norm(U)
         return U
@@ -93,6 +85,9 @@ class ComplexGrassmann(Manifold):
         return PXehess - HXHG
 
     def retr(self, X, G):
+        # Calculate 'thin' qr decomposition of X + G
+        # XNew, r = np.linalg.qr(X + G)
+
         # We do not need to worry about flipping signs of columns here,
         # since only the column space is important, not the actual
         # columns. Compare this with the Stiefel manifold.
@@ -105,9 +100,8 @@ class ComplexGrassmann(Manifold):
         U, S, VH = np.linalg.svd(U, full_matrices=False)
         cos_S = np.expand_dims(np.cos(S), -2)
         sin_S = np.expand_dims(np.sin(S), -2)
-        Y = multiprod(multiprod(X, multihconj(VH) * cos_S), VH) + multiprod(
-            U * sin_S, VH
-        )
+        Y = (multiprod(multiprod(X, multihconj(VH) * cos_S), VH)
+             + multiprod(U * sin_S, VH))
 
         # From numerical experiments, it seems necessary to
         # re-orthonormalize. This is overall quite expensive.

@@ -7,54 +7,62 @@ from pymanopt.solvers.solver import Solver
 from pymanopt.solvers.steepest_descent import SteepestDescent
 
 
+# TODO(nkoep): Check if a suitable autodiff backend is available, and solve the
+#              problem using the TR solver if so.
 def compute_centroid(manifold, points):
     """Compute the centroid of `points` on the `manifold` as Karcher mean."""
+    num_points = len(points)
 
-    @pymanopt.function.Callable(manifold)
-    def objective(*y):
-        if manifold.num_values == 1:
-            (y,) = y
-        return sum([manifold.dist(y, point) ** 2 for point in points]) / 2
+    @pymanopt.function.Callable
+    def objective(y):
+        accumulator = 0
+        for i in range(num_points):
+            accumulator += manifold.dist(y, points[i]) ** 2
+        return accumulator / 2
 
-    @pymanopt.function.Callable(manifold)
-    def gradient(*y):
-        if manifold.num_values == 1:
-            (y,) = y
-        return -sum(
-            [manifold.log(y, point) for point in points], manifold.zerovec(y)
-        )
+    @pymanopt.function.Callable
+    def gradient(y):
+        g = manifold.zerovec(y)
+        for i in range(num_points):
+            g -= manifold.log(y, points[i])
+        return g
 
+    # XXX: Manopt runs a few TR iterations here. For us to do this, we either
+    #      need to work out the Hessian of the Karcher mean by hand or
+    #      implement approximations for the Hessian to use in the TR solver as
+    #      Manopt. This is because we cannot implement the Karcher mean with
+    #      Theano, say, and compute the Hessian automatically due to dependence
+    #      on the manifold-dependent distance function, which is written in
+    #      numpy.
     solver = SteepestDescent(maxiter=15)
     problem = pymanopt.Problem(manifold, objective, grad=gradient, verbosity=0)
     return solver.solve(problem)
 
 
 class NelderMead(Solver):
-    """Nelder-Mead alglorithm.
-
-    Perform optimization using the derivative-free Nelder-Mead minimization
-    algorithm.
-
-    Args:
-        maxcostevals: Maximum number of allowed cost function evaluations.
-        maxiter: Maximum number of allowed iterations.
-        reflection: Determines how far to reflect away from the worst vertex:
-            stretched (reflection > 1), compressed (0 < reflection < 1),
-            or exact (reflection = 1).
-        expansion: Factor by which to expand the reflected simplex.
-        contraction: Factor by which to contract the reflected simplex.
+    """
+    Nelder-Mead minimization alglorithm for derivative-free minimization
+    based on neldermead.m and centroid.m from the manopt MATLAB package.
     """
 
-    def __init__(
-        self,
-        maxcostevals=None,
-        maxiter=None,
-        reflection=1,
-        expansion=2,
-        contraction=0.5,
-        *args,
-        **kwargs,
-    ):
+    def __init__(self, maxcostevals=None, maxiter=None, reflection=1,
+                 expansion=2, contraction=0.5, *args, **kwargs):
+        """
+        Instantiate Nelder-Mead method solver class.
+        Variable attributes (defaults in brackets):
+            - maxcostevals (max(5000, 2 * dim))
+                Maximum number of allowed cost evaluations
+            - maxiter (max(500, 4 * dim))
+                Maximum number of allowed iterations
+            - reflection (1)
+                Determines how far to reflect away from the worst vertex;
+                stretched (reflection > 1), compressed (0 < reflection < 1),
+                or exact (reflection = 1)
+            - expansion (2)
+                Factor by which to expand the reflected simplex
+            - contraction (0.5)
+                Factor by which to contract the reflected simplex
+        """
         super().__init__(*args, **kwargs)
 
         self._maxcostevals = maxcostevals
@@ -64,18 +72,22 @@ class NelderMead(Solver):
         self._contraction = contraction
 
     def solve(self, problem, x=None):
-        """Run Nelder-Mead algorithm.
-
-        Args:
-            problem: Pymanopt problem class instance exposing the cost function
-                and the manifold to optimize over.
-            x: Initial point on the manifold.
-                If no value is provided then a starting point will be randomly
-                generated.
-
+        """
+        Perform optimization using a Nelder-Mead minimization algorithm.
+        Arguments:
+            - problem
+                Pymanopt problem setup using the Problem class, this must
+                have a .manifold attribute specifying the manifold to optimize
+                over, as well as a cost and enough information to compute
+                the gradient of that cost.
+            - x=None
+                Optional parameter. Initial population of elements on the
+                manifold. If None then an initial population will be randomly
+                generated
         Returns:
-            Local minimum of the cost function, or the most recent iterate if
-            algorithm terminated before convergence.
+            - x
+                Local minimum of obj, or if algorithm terminated before
+                convergence x will be the point at which it terminated
         """
         man = problem.manifold
         verbosity = problem.verbosity
@@ -98,11 +110,9 @@ class NelderMead(Solver):
         else:
             # XXX: Is this necessary?
             if len(x) != dim + 1:
-                print(
-                    "The simplex size was adapted to the dimension "
-                    "of the manifold"
-                )
-                x = x[: dim + 1]
+                print("The simplex size was adapted to the dimension "
+                      "of the manifold")
+                x = x[:dim + 1]
 
         # Compute objective-related quantities for x, and setup a function
         # evaluations counter.
@@ -126,10 +136,8 @@ class NelderMead(Solver):
             iter += 1
 
             if verbosity >= 2:
-                print(
-                    f"Cost evals: {costevals:7d}\t"
-                    f"Best cost: {costs[0]:+.8e}"
-                )
+                print("Cost evals: %7d\t"
+                      "Best cost: %+.8e" % (costevals, costs[0]))
 
             # Sort simplex points by cost.
             order = np.argsort(costs)
@@ -137,12 +145,11 @@ class NelderMead(Solver):
             x = [x[i] for i in order]  # XXX: Probably inefficient
 
             stop_reason = self._check_stopping_criterion(
-                time0, iter=iter, costevals=costevals
-            )
+                time0, iter=iter, costevals=costevals)
             if stop_reason:
                 if verbosity >= 1:
                     print(stop_reason)
-                    print("")
+                    print('')
                 break
 
             # Compute a centroid for the dim best points.
@@ -221,12 +228,6 @@ class NelderMead(Solver):
         if self._logverbosity <= 0:
             return x[0]
         else:
-            self._stop_optlog(
-                x[0],
-                objective(x[0]),
-                stop_reason,
-                time0,
-                costevals=costevals,
-                iter=iter,
-            )
+            self._stop_optlog(x[0], objective(x[0]), stop_reason, time0,
+                              costevals=costevals, iter=iter)
             return x[0], self._optlog

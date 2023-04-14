@@ -1,52 +1,61 @@
+import os
+
 import autograd.numpy as np
 import tensorflow as tf
+import theano.tensor as T
 import torch
-from numpy import linalg as la
-from numpy import random as rnd
+from examples._tools import ExampleRunner
+from numpy import linalg as la, random as rnd
 
 import pymanopt
-from examples._tools import ExampleRunner
 from pymanopt.manifolds import Oblique
 from pymanopt.solvers import ConjugateGradient
 
 
-SUPPORTED_BACKENDS = ("Autograd", "Callable", "PyTorch", "TensorFlow")
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
-def create_cost_egrad(manifold, matrix, backend):
+SUPPORTED_BACKENDS = (
+    "Autograd", "Callable", "PyTorch", "TensorFlow", "Theano"
+)
+
+
+def create_cost_egrad(backend, A):
+    m, n = A.shape
     egrad = None
 
     if backend == "Autograd":
-
-        @pymanopt.function.Autograd(manifold)
+        @pymanopt.function.Autograd
         def cost(X):
-            return 0.5 * np.sum((X - matrix) ** 2)
-
+            return 0.5 * np.sum((X - A) ** 2)
     elif backend == "Callable":
-
-        @pymanopt.function.Callable(manifold)
+        @pymanopt.function.Callable
         def cost(X):
-            return 0.5 * np.sum((X - matrix) ** 2)
+            return 0.5 * np.sum((X - A) ** 2)
 
-        @pymanopt.function.Callable(manifold)
+        @pymanopt.function.Callable
         def egrad(X):
-            return X - matrix
-
+            return X - A
     elif backend == "PyTorch":
-        matrix_ = torch.from_numpy(matrix)
+        A_ = torch.from_numpy(A)
 
-        @pymanopt.function.PyTorch(manifold)
+        @pymanopt.function.PyTorch
         def cost(X):
-            return 0.5 * torch.sum((X - matrix_) ** 2)
-
+            return 0.5 * torch.sum((X - A_) ** 2)
     elif backend == "TensorFlow":
+        X = tf.Variable(tf.zeros((m, n), dtype=np.float64), name="X")
 
-        @pymanopt.function.TensorFlow(manifold)
+        @pymanopt.function.TensorFlow(X)
         def cost(X):
-            return 0.5 * tf.reduce_sum((X - matrix) ** 2)
+            return 0.5 * tf.reduce_sum((X - A) ** 2)
+    elif backend == "Theano":
+        X = T.matrix()
 
+        @pymanopt.function.Theano(X)
+        def cost(X):
+            return 0.5 * T.sum((X - A) ** 2)
     else:
-        raise ValueError(f"Unsupported backend '{backend}'")
+        raise ValueError("Unsupported backend '{:s}'".format(backend))
 
     return cost, egrad
 
@@ -56,8 +65,8 @@ def run(backend=SUPPORTED_BACKENDS[0], quiet=True):
     n = 8
     matrix = rnd.randn(m, n)
 
+    cost, egrad = create_cost_egrad(backend, matrix)
     manifold = Oblique(m, n)
-    cost, egrad = create_cost_egrad(manifold, matrix, backend)
     problem = pymanopt.Problem(manifold, cost=cost, egrad=egrad)
     if quiet:
         problem.verbosity = 0
@@ -68,7 +77,7 @@ def run(backend=SUPPORTED_BACKENDS[0], quiet=True):
     if quiet:
         return
 
-    # Calculate the actual solution by normalizing the columns of matrix.
+    # Calculate the actual solution by normalizing the columns of A.
     X = matrix / la.norm(matrix, axis=0)[np.newaxis, :]
 
     # Print information about the solution.
@@ -77,7 +86,6 @@ def run(backend=SUPPORTED_BACKENDS[0], quiet=True):
 
 
 if __name__ == "__main__":
-    runner = ExampleRunner(
-        run, "Closest unit Frobenius norm approximation", SUPPORTED_BACKENDS
-    )
+    runner = ExampleRunner(run, "Closest unit Frobenius norm approximation",
+                           SUPPORTED_BACKENDS)
     runner.run()
