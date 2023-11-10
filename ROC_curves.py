@@ -20,7 +20,7 @@ import time
 
 from graphical_models import Graphical_models
 
-argParser = argparse.ArgumentParser()  #
+argParser = argparse.ArgumentParser()
 argParser.add_argument("--graph", type=str, default='BA', help="graph structure to be considered. Possible values are: BA, ER, WS, RG (default: BA)")
 argParser.add_argument("--method", type=str, default='GGM', help=". Possible values are: GGM, EGM, GGFM, EGFM, all")
 argParser.add_argument("--roc", type=str, default='lambda', help="type of ROC curve to be computed. Possible values are: lambda, rank, compare (default: lambda)")
