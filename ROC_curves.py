@@ -12,7 +12,9 @@ from sklearn import metrics
 
 import matplotlib.pyplot as plt
 
-from src.estimators import SGLkComponents, NGL, HeavyTailkGL, EllipticalGL, GLasso
+from src.estimators import SGLkComponents, NGL, HeavyTailkGL, GLasso
+
+from src.elliptical_graph_model import EllipticalGL
 
 from joblib import Parallel, delayed
 from tqdm import tqdm
