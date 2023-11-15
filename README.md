@@ -6,8 +6,8 @@ Graph Learning meets regularized factor models,
 Florent Bouchard, Arnaud Breloy, Alexandre Hippert-Ferrer, Ammar Mian, Titouan Vayer
 ```
 
-The draft of the article is available on arXiv:
-[XXXX](XXXX).
+Article available at:
+[https://arxiv.org/pdf/2210.11950.pdf](https://arxiv.org/pdf/2210.11950.pdf)
 
 
 ## Repository organisation
