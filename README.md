@@ -21,12 +21,11 @@ Article available at:
 ├── src/
 │   ├── utils.py
 │   ├── elliptical_estimation.py
+│   ├── elliptical_graph_model.py
 │   ├── estimators.py
 │   ├── manifolds.py
 │   ├── models.py
-│   ├── NGL.py
 │   ├── sparse_penalties.py
-│   ├── studentGL.py
 │   └── visualization.py
 ├── tex/
 │   ├── gnss_results.tex
