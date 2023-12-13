@@ -1,7 +1,7 @@
 # Created Date: Tuesday, March 22nd 2022
-# Author: Ammar Mian
+# Author: Alexandre Hippert-Ferrer
 # 
-# Copyright (c) 2022 Universite Savoie Mont-Blanc
+# Copyright (c) 2022 Universite Gustave Eiffel
  
 name: graphfactormodels
 channels:
@@ -31,6 +31,7 @@ dependencies:
   - scikit-learn
   - geomstats
   - geoopt
+  - pymanopt
   - pyriemann
   - pyyaml
   - "jax[cpu]"

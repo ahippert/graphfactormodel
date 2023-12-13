@@ -6,31 +6,19 @@ from scipy.linalg.lapack import dpotrf
 
 from sklearn.base import TransformerMixin, BaseEstimator
 
-from pymanopt.function import Callable
+import pymanopt
 from pymanopt import Problem
-from pymanopt.solvers import ConjugateGradient, SteepestDescent
+from pymanopt.optimizers import ConjugateGradient, SteepestDescent
 
 from pymanopt import tools
 
-# TODO: Use Python's enum module.
-BetaTypes = tools.make_enum(
-    "BetaTypes",
-    "FletcherReeves PolakRibiere HestenesStiefel HagerZhang".split())
-
 from functools import partial
 
-from .manifold import SPD, manFactorModel, mapFactor2SPD, egradSPD2egradFactor
-from .elliptical_estimation import (
-    normal_cost, normal_egrad, normal_rgrad,
-    t_cost, t_egrad, t_rgrad,
-    tyler_cost, tyler_egrad, tyler_rgrad
-)
-from .sparse_penalties import (
-    smooth_l1, smooth_l1_deriv,
-    smooth_relu, smooth_relu_deriv,
-    sparse_SPD_cost, sparse_SPD_egrad, sparse_SPD_rgrad,
-    sparse_FactorLRpart_cost, sparse_FactorLRpart_egrad
-    )
+from .spd_manifold import SPD
+from .elliptical import tRealCentered
+from .factormodel_manifold import FactorModel, FactorModel2SPD
+from .sparse_penalties import SparsePenalty_SPDInv_Elementwise, l1Smooth
+
 
 # -------------------------------------------------------------------------
 # Class Elliptical Graph Learning
@@ -122,77 +110,64 @@ class EllipticalGL(BaseEstimator, TransformerMixin):
     def _learn_graph(self, X):
         """
         """
-        # First of all, choose cost and egrad model
-        cost_model = partial(t_cost, x=X.T, df=self.df)
-        egrad_model = partial(t_egrad, x=X.T, df=self.df)
-        #rgrad_model = partial(t_rgrad, x=x, df=df)
-
-        # Choose cost, egrad penalty
-        cost_penalty = partial(sparse_SPD_cost, h=partial(smooth_l1,eps=self.eps))
-        egrad_penalty = partial(sparse_SPD_egrad, dh=partial(smooth_l1_deriv,eps=self.eps))
         # Initialize covariance matrix
         n, p = X.shape
         init_estimate = self._compute_initial_matrix(X, n, p)
 
+        model = tRealCentered(X, df=self.df)
+        penalty = SparsePenalty_SPDInv_Elementwise(l1Smooth(self.eps),p)
+
         # Define manifolds
         manifold_SPD = SPD(p)
         if self.geometry is not "SPD":
-            manifold_factor = manFactorModel(p, self.k)
+            manifold_factor = FactorModel(p, self.k)
 
         result_seq = []
         error_seq = []
 
         # Solver
-        solver = ConjugateGradient(logverbosity=0, maxiter=self.maxiter)#, beta_type=BetaTypes.HagerZhang)
+        optimizer = ConjugateGradient(verbosity=self.verbosity, log_verbosity=0, max_iterations=self.maxiter)#, beta_type=BetaTypes.HagerZhang)
         #solver = SteepestDescent(logverbosity=0, maxiter=self.maxiter)
         # Define the different values of lambda
         #lamb_all = [0,1e-5,1e-4,5e-4,1e-3,2.5e-3,5e-3,7.5e-3,1e-2,2.5e-2,5e-2]
         for i, lamb in enumerate(self.lambda_seq):
+            opt_fun_SPD = model + lamb * penalty
             # Declare optimization functions
-            @Callable#(man_SPD)
+            @pymanopt.function.numpy(manifold_SPD)
             def cost_SPD(R):
-                #print(cost_model(R))
-                return cost_model(R) + lamb * cost_penalty(R)
-            @Callable#(man_SPD)
-            def egrad_SPD(R):
-                return egrad_model(R) + lamb * egrad_penalty(R)
+                return opt_fun_SPD.cost(R)
+            @pymanopt.function.numpy(manifold_SPD)
+            def euclidean_gradient_SPD(R):
+                return opt_fun_SPD.euclidean_gradient(R)
 
             if self.geometry=="factor":
-                @Callable#(man_SPD)
+                factor2SPD = FactorModel2SPD()
+                opt_fun_factor = opt_fun_SPD.compose(factor2SPD)
+                @pymanopt.function.numpy(manifold_factor)
                 def cost_factor(theta):
-                    return cost_SPD(mapFactor2SPD(theta))
-                @Callable#(man_SPD)
-                def egrad_factor(theta):
-                    return egradSPD2egradFactor(theta, egrad_SPD(mapFactor2SPD(theta)))
-            elif self.geometry=="factor+penalty":
-                @Callable
-                def cost_factor_LRpenalty(theta):
-                    return cost_model(mapFactor2SPD(theta)) + lamb * sparse_FactorLRpart_cost(theta, h=partial(smooth_l1,eps=self.eps))
-                @Callable
-                def egrad_factor_LRpenalty(theta):
-                    return egradSPD2egradFactor(theta, egrad_model(mapFactor2SPD(theta))) + lamb * sparse_FactorLRpart_egrad(theta, dh=partial(smooth_l1_deriv, eps=self.eps))
+                    return opt_fun_factor.cost(theta)
+                @pymanopt.function.numpy(manifold_factor)
+                def euclidean_gradient_factor(theta):
+                    return opt_fun_factor.euclidean_gradient(theta)
             else:
                 pass
 
 
             if self.geometry=="SPD":
                 cost = cost_SPD
-                egrad = egrad_SPD
+                egrad = euclidean_gradient_SPD
             elif self.geometry=="factor":
                 cost = cost_factor
-                egrad = egrad_factor
-            else:
-                cost = cost_factor_LRpenalty
-                egrad = egrad_factor_LRpenalty
+                egrad = euclidean_gradient_factor
 
             # Declare problem
             if self.geometry=="SPD":
-                problem = Problem(manifold=manifold_SPD, cost=cost, egrad=egrad, verbosity=self.verbosity)
+                problem = Problem(manifold=manifold_SPD, cost=cost, euclidean_gradient=egrad)
             else:
-                problem = Problem(manifold=manifold_factor, cost=cost, egrad=egrad, verbosity=self.verbosity)
+                problem = Problem(manifold=manifold_factor, cost=cost, euclidean_gradient=egrad)
 
             # perform resolution
-            tmp = solver.solve(problem, x=init_estimate)
+            tmp = optimizer.run(problem, initial_point=init_estimate).point
 
             result_seq.append(tmp)
 
@@ -201,8 +176,8 @@ class EllipticalGL(BaseEstimator, TransformerMixin):
                 error_seq.append(10*np.log(manifold_SPD.dist(init_estimate, result_seq[i])**2))
                 if self.verbosity: print(f"{self.geometry} - lambda={lamb}: {error_seq[i]}")
             else:
-                error_seq.append(10*np.log(manifold_SPD.dist(mapFactor2SPD(init_estimate),
-                                                             mapFactor2SPD(result_seq[i]))**2))
+                error_seq.append(10*np.log(manifold_SPD.dist(factor2SPD.mapping(init_estimate),
+                                                             factor2SPD.mapping(result_seq[i]))**2))
                 if self.verbosity: print(f"{self.geometry} - lambda={lamb}: {error_seq[i]}")
 
             # Update initializations
@@ -211,7 +186,7 @@ class EllipticalGL(BaseEstimator, TransformerMixin):
             #i = i+1
 
         # Get estimate whose distance is minimal and graph matrices
-        ind_estimate = -1#np.argmin(np.abs(error_seq))
+        ind_estimate = -1 #np.argmin(np.abs(error_seq))
         if self.geometry=="SPD":
             final_estimate = result_seq[ind_estimate]
             precision_matrix = np.linalg.inv(final_estimate)
@@ -234,8 +209,6 @@ class EllipticalGL(BaseEstimator, TransformerMixin):
         return {"covariance": final_estimate, "precision": precision,
                 "error_seq": error_seq, "result_seq": result_seq}
 
-
-
     def fit(self, X, y=None):
         """
         Fit the model according to the given training data.
@@ -252,14 +225,8 @@ class EllipticalGL(BaseEstimator, TransformerMixin):
 
         y :
         """
-        # from (Kumar et al. 2020)
-        # if self.S is None:
-        #     k = self.k
-        #     S = self.S_estimation_method(X.shape[1], k)
-        #     self.S = S
 
         # Doing estimation
-        #if self.verbosity>=1:
         results = self._learn_graph(X)
 
         # Saving results

@@ -32,6 +32,8 @@ argParser.add_argument("-n", "--samples", type=int, default=105, help="number of
 argParser.add_argument("--multi", type=bool, default=True, help="wheter to use multi-threading or not (default: True)")
 argParser.add_argument("--save", type=bool, default=False, help="save plot in pdf format (default: False)")
 args = argParser.parse_args()
+argParser.add_argument("-v", "--verbose", type=bool, default=False, help="print additional info about adjacency matrices (default: False)")
+args = argParser.parse_args()
 
 
 NGL = Pipeline(steps=[
@@ -72,7 +74,8 @@ def one_monte_carlo(trial_no, model, parameter, n, p):
     L, A = model["laplacian"], model["adjacency"]
 
     # print approximate rank
-    print("approx. rank of adjacency matrix: {:2}".format(np.linalg.matrix_rank(A)))
+    if args.verbose == True:
+        print("approx. rank of adjacency matrix: {:2}".format(np.linalg.matrix_rank(A)))
 
     # do some matching test
     if np.mean((L - (np.diag(np.diag(L)) - A))) != 0.:
