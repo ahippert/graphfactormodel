@@ -16,7 +16,7 @@ conda env create -f conda/environment.yml
 
 # Activating environment for isntalling further stuff
 eval "$(conda shell.bash hook)"  # bug fix: https://github.com/conda/conda/issues/7980#issuecomment-492784093 
-conda activate graphfactormodels
+conda activate graphfactormodels_test
 
 # Installing other librairies
 echo "Installing StructuredGraphLearning"

@@ -3,7 +3,7 @@
 # 
 # Copyright (c) 2022 Universite Gustave Eiffel
  
-name: graphfactormodels
+name: graphfactormodels_test
 channels:
   - pyg
   - conda-forge
